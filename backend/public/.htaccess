@@ -1,0 +1,20 @@
+# Hostinger / Apache — front-controller + CORS
+Options -MultiViews -Indexes
+RewriteEngine On
+
+# Route everything through index.php
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.php [QSA,L]
+
+# Security headers
+<IfModule mod_headers.c>
+  Header set X-Content-Type-Options "nosniff"
+  Header set X-Frame-Options "DENY"
+  Header set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# Deny access to hidden files (.env, .git, etc.)
+<FilesMatch "^\.">
+  Require all denied
+</FilesMatch>

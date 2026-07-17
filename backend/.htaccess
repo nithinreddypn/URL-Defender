@@ -1,0 +1,2 @@
+# Block access to everything outside public/
+Require all denied
