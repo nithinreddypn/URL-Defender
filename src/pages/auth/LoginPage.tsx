@@ -2,7 +2,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { z } from "zod";
 import { Mail, Lock, Loader2, ArrowRight, ShieldAlert } from "lucide-react";
-import { Field, GoogleIcon, MicrosoftIcon } from "@/components/auth/form-primitives";
+import { Field, GoogleIcon } from "@/components/auth/form-primitives";
 import { toast } from "sonner";
 import { startGoogleSignIn } from "@/lib/google-oauth";
 import { ApiError, apiRequest, setAuthToken, type BackendUser } from "@/lib/api";
@@ -104,12 +104,9 @@ export default function LoginPage() {
         Sign in to continue protecting your links.
       </p>
 
-      <div className="mt-7 grid grid-cols-2 gap-3">
+      <div className="mt-7 grid grid-cols-1 gap-3">
         <OAuthBtn provider="Google" onClick={signInWithGoogle}>
           <GoogleIcon />
-        </OAuthBtn>
-        <OAuthBtn provider="Microsoft">
-          <MicrosoftIcon />
         </OAuthBtn>
       </div>
 

@@ -546,8 +546,8 @@ function FAQ() {
           <h2 className="mt-3 text-display text-4xl">Questions, answered.</h2>
           <p className="mt-4 text-muted-foreground">
             Anything else? Reach us at{" "}
-            <a className="underline underline-offset-4" href="mailto:hi@urldefender.io">
-              hi@urldefender.io
+            <a className="underline underline-offset-4" href="mailto:urldefenderservice@gmail.com">
+              urldefenderservice@gmail.com
             </a>
             .
           </p>

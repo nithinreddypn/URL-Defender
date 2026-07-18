@@ -7,7 +7,6 @@ import {
   PasswordStrength,
   strengthScore,
   GoogleIcon,
-  MicrosoftIcon,
 } from "@/components/auth/form-primitives";
 import { Card, OAuthBtn } from "./LoginPage";
 import { toast } from "sonner";
@@ -114,12 +113,9 @@ export default function SignupPage() {
         50 free scans per month · no credit card required.
       </p>
 
-      <div className="mt-7 grid grid-cols-2 gap-3">
+      <div className="mt-7 grid grid-cols-1 gap-3">
         <OAuthBtn provider="Google" onClick={signInWithGoogle}>
           <GoogleIcon />
-        </OAuthBtn>
-        <OAuthBtn provider="Microsoft">
-          <MicrosoftIcon />
         </OAuthBtn>
       </div>
 
