@@ -13,15 +13,16 @@ final class MailService
 {
     public static function send(string $to, string $subject, string $html): bool
     {
-        $host = Env::get('SMTP_HOST', '');
+        $config = require __DIR__ . '/../../config/mail.php';
+        $host   = $config['host'] ?? '';
         if ($host === '') return false;
 
-        $port   = (int) Env::get('SMTP_PORT', '587');
-        $user   = Env::get('SMTP_USER', '');
-        $pass   = Env::get('SMTP_PASS', '');
-        $from   = Env::get('SMTP_FROM', 'noreply@localhost');
-        $fromN  = Env::get('SMTP_FROM_NAME', 'URL Defender');
-        $secure = strtolower(Env::get('SMTP_SECURE', 'tls'));
+        $port   = (int) ($config['port'] ?? 587);
+        $user   = $config['user'] ?? '';
+        $pass   = $config['pass'] ?? '';
+        $from   = $config['from'] ?? 'noreply@localhost';
+        $fromN  = $config['from_name'] ?? 'URL Defender';
+        $secure = strtolower($config['secure'] ?? 'tls');
 
         $transport = $secure === 'ssl' ? "ssl://{$host}" : $host;
         $errno = 0; $errstr = '';

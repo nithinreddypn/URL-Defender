@@ -1,3 +1,5 @@
+import { API_BASE_URL } from "@/config/api";
+
 const TOKEN_KEY = "url-defender-token";
 
 export class ApiError extends Error {
@@ -10,7 +12,7 @@ export class ApiError extends Error {
 }
 
 function apiBase(): string {
-  return (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/$/, "");
+  return API_BASE_URL.replace(/\/$/, "");
 }
 
 /** Resolve API-hosted uploads while preserving third-party avatar URLs. */
@@ -57,7 +59,12 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}): Pr
     headers.set("Content-Type", "application/json");
   }
 
-  const response = await fetch(`${apiBase()}${path}`, { ...options, headers });
+  let normalizedPath = path;
+  if (path.startsWith("/api/") && path !== "/api/health") {
+    normalizedPath = "/api/v1/" + path.substring(5);
+  }
+
+  const response = await fetch(`${apiBase()}${normalizedPath}`, { ...options, headers });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {
     if (response.status === 401) clearAuthToken();

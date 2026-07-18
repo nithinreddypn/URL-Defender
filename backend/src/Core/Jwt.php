@@ -10,9 +10,13 @@ final class Jwt
 {
     public static function issue(array $claims, ?int $ttlMinutes = null): string
     {
-        $secret = Env::required('JWT_SECRET');
-        $iss    = Env::get('JWT_ISSUER', 'url-defender');
-        $ttl    = $ttlMinutes ?? (int) Env::get('JWT_TTL_MINUTES', '1440');
+        $config = require __DIR__ . '/../../config/jwt.php';
+        $secret = $config['secret'] ?? '';
+        if ($secret === '') {
+            throw new \RuntimeException("Missing required JWT_SECRET configuration");
+        }
+        $iss    = $config['issuer'] ?? 'url-defender';
+        $ttl    = $ttlMinutes ?? (int) ($config['ttl_minutes'] ?? 1440);
         $now    = time();
 
         $payload = array_merge([
@@ -31,7 +35,11 @@ final class Jwt
 
     public static function verify(string $token): ?array
     {
-        $secret = Env::required('JWT_SECRET');
+        $config = require __DIR__ . '/../../config/jwt.php';
+        $secret = $config['secret'] ?? '';
+        if ($secret === '') {
+            throw new \RuntimeException("Missing required JWT_SECRET configuration");
+        }
         $parts = explode('.', $token);
         if (count($parts) !== 3) return null;
         [$h, $p, $sig] = $parts;

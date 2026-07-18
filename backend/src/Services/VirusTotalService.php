@@ -12,9 +12,19 @@ final class VirusTotalService
     private const POLL_INTERVAL_MS = 900;
     private const POLL_MIN_ENGINES = 15;
 
+    private static function apiKey(): string
+    {
+        static $key = null;
+        if ($key === null) {
+            $config = require __DIR__ . '/../../config/virustotal.php';
+            $key = $config['api_key'] ?? '';
+        }
+        return $key;
+    }
+
     public static function isConfigured(): bool
     {
-        return (Env::get('VIRUSTOTAL_API_KEY', '') ?? '') !== '';
+        return self::apiKey() !== '';
     }
 
     /** @return array shape matching frontend ScanResult */
@@ -82,9 +92,13 @@ final class VirusTotalService
     // ---------- HTTP ----------
     private static function http(string $method, string $path, array $opts = []): array
     {
+        $key = self::apiKey();
+        if ($key === '') {
+            throw new \RuntimeException("Missing required VIRUSTOTAL_API_KEY configuration");
+        }
         $ch = curl_init(self::BASE . $path);
         $headers = [
-            'x-apikey: ' . Env::required('VIRUSTOTAL_API_KEY'),
+            'x-apikey: ' . $key,
             'accept: application/json',
         ];
         if (isset($opts['form'])) {

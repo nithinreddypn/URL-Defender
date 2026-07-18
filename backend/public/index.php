@@ -75,44 +75,51 @@ $notiC = new NotificationController();
 $payC  = new PaymentController();
 
 // health
-$router->get('/api/health', fn() => Response::json([
-    'ok'         => true,
-    'time'       => date('c'),
-    'virustotal' => \App\Services\VirusTotalService::isConfigured(),
-    'razorpay'   => \App\Services\RazorpayService::isConfigured(),
-    'smtp'       => (Env::get('SMTP_HOST', '') ?? '') !== '',
-]));
+$router->get('/api/health', function() {
+    $dbConnected = "disconnected";
+    try {
+        require __DIR__ . '/../config/database.php';
+        $dbConnected = "connected";
+    } catch (\Throwable $e) {
+        $dbConnected = "disconnected";
+    }
+    Response::json([
+        'status'   => 'ok',
+        'database' => $dbConnected,
+        'version'  => '1.0',
+    ]);
+});
 
 // auth
-$router->post('/api/auth/signup',          fn($r) => $authC->signup($r));
-$router->post('/api/auth/verify-email',    fn($r) => $authC->verifyEmail($r));
-$router->post('/api/auth/resend-otp',      fn($r) => $authC->resendOtp($r));
-$router->post('/api/auth/login',           fn($r) => $authC->login($r));
-$router->post('/api/auth/logout',          fn($r) => $authC->logout($r), [$auth]);
-$router->post('/api/auth/forgot-password', fn($r) => $authC->forgotPassword($r));
-$router->post('/api/auth/reset-password',  fn($r) => $authC->resetPassword($r));
-$router->post('/api/auth/google/callback', fn($r) => $authC->googleCallback($r));
+$router->post('/api/v1/auth/signup',          fn($r) => $authC->signup($r));
+$router->post('/api/v1/auth/verify-email',    fn($r) => $authC->verifyEmail($r));
+$router->post('/api/v1/auth/resend-otp',      fn($r) => $authC->resendOtp($r));
+$router->post('/api/v1/auth/login',           fn($r) => $authC->login($r));
+$router->post('/api/v1/auth/logout',          fn($r) => $authC->logout($r), [$auth]);
+$router->post('/api/v1/auth/forgot-password', fn($r) => $authC->forgotPassword($r));
+$router->post('/api/v1/auth/reset-password',  fn($r) => $authC->resetPassword($r));
+$router->post('/api/v1/auth/google/callback', fn($r) => $authC->googleCallback($r));
 
 // me
-$router->get  ('/api/me', fn($r) => $authC->me($r),       [$auth, $verified]);
-$router->patch('/api/me', fn($r) => $authC->updateMe($r), [$auth, $verified]);
-$router->post('/api/me/avatar', fn($r) => $authC->uploadAvatar($r), [$auth, $verified]);
+$router->get  ('/api/v1/me', fn($r) => $authC->me($r),       [$auth, $verified]);
+$router->patch('/api/v1/me', fn($r) => $authC->updateMe($r), [$auth, $verified]);
+$router->post('/api/v1/me/avatar', fn($r) => $authC->uploadAvatar($r), [$auth, $verified]);
 
 // scans
-$router->get ('/api/url/lookup',  fn($r) => $scanC->lookup($r), [$auth, $verified]);
-$router->post('/api/scans',       fn($r) => $scanC->create($r), [$auth, $verified]);
-$router->get ('/api/scans',       fn($r) => $scanC->list($r),   [$auth, $verified]);
-$router->get ('/api/scans/{id}',  fn($r) => $scanC->get($r),    [$auth, $verified]);
+$router->get ('/api/v1/url/lookup',  fn($r) => $scanC->lookup($r), [$auth, $verified]);
+$router->post('/api/v1/scans',       fn($r) => $scanC->create($r), [$auth, $verified]);
+$router->get ('/api/v1/scans',       fn($r) => $scanC->list($r),   [$auth, $verified]);
+$router->get ('/api/v1/scans/{id}',  fn($r) => $scanC->get($r),    [$auth, $verified]);
 
 // notifications
-$router->get ('/api/notifications',            fn($r) => $notiC->list($r),    [$auth, $verified]);
-$router->post('/api/notifications/read-all',   fn($r) => $notiC->readAll($r), [$auth, $verified]);
-$router->post('/api/notifications/clear',      fn($r) => $notiC->clear($r),   [$auth, $verified]);
-$router->post('/api/notifications/{id}/read',  fn($r) => $notiC->readOne($r), [$auth, $verified]);
+$router->get ('/api/v1/notifications',            fn($r) => $notiC->list($r),    [$auth, $verified]);
+$router->post('/api/v1/notifications/read-all',   fn($r) => $notiC->readAll($r), [$auth, $verified]);
+$router->post('/api/v1/notifications/clear',      fn($r) => $notiC->clear($r),   [$auth, $verified]);
+$router->post('/api/v1/notifications/{id}/read',  fn($r) => $notiC->readOne($r), [$auth, $verified]);
 
 // payments
-$router->post('/api/payments/order',   fn($r) => $payC->createOrder($r), [$auth, $verified]);
-$router->post('/api/payments/verify',  fn($r) => $payC->verify($r),      [$auth, $verified]);
-$router->post('/api/webhooks/razorpay',fn($r) => $payC->webhook($r));
+$router->post('/api/v1/payments/order',   fn($r) => $payC->createOrder($r), [$auth, $verified]);
+$router->post('/api/v1/payments/verify',  fn($r) => $payC->verify($r),      [$auth, $verified]);
+$router->post('/api/v1/webhooks/razorpay',fn($r) => $payC->webhook($r));
 
 $router->dispatch($req);
