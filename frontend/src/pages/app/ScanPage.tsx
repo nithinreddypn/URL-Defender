@@ -825,10 +825,9 @@ function UrlAnalysisResultCard({ data }: { data: LookupData }) {
           </div>
         </div>
 
-        {data.id && (
+        {(data.id || data.global_analysis_id) && (
           <Link
-            to="/scan/$id/result"
-            params={{ id: data.id }}
+            to={`/scan/${data.id || data.global_analysis_id}/result`}
             className="ring-focus inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-border bg-background px-3 text-xs font-semibold text-foreground transition-all hover:bg-hover-surface hover:scale-[1.02] active:scale-[0.98]"
           >
             <span>View report</span>

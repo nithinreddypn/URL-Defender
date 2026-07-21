@@ -165,10 +165,17 @@ final class ScanController
     // GET /api/scans/{id}  (auth)
     public function get(Request $req): void
     {
-        $id = $req->params['id'];
+        $input = trim(rawurldecode($req->params['id'] ?? ''));
 
-        // 1. Search in user's personal scans table first
-        $scan = Db::one('SELECT * FROM scans WHERE id=? AND user_id=? LIMIT 1', [$id, $req->user['id']]);
+        if ($input === '$id' || $input === '') {
+            Response::error('Invalid scan ID or URL', 400);
+        }
+
+        // 1. Search in user's personal scans table first by ID, URL, or hostname
+        $scan = Db::one(
+            'SELECT * FROM scans WHERE (id=? OR url=? OR hostname=?) AND user_id=? ORDER BY scanned_at DESC LIMIT 1',
+            [$input, $input, $input, $req->user['id']]
+        );
 
         $analysis = null;
         $sr = null;
@@ -185,18 +192,24 @@ final class ScanController
             $sr = Db::one('SELECT * FROM scan_results WHERE scan_id=?', [$scan['id']]);
             $engines = Db::all('SELECT engine_name AS name, flagged, label FROM scan_engines WHERE scan_id=? ORDER BY flagged DESC, engine_name', [$scan['id']]);
         } else {
-            // 2. Search in url_analyses table (global threat intelligence)
-            $analysis = Db::one('SELECT * FROM url_analyses WHERE id=? LIMIT 1', [$id]);
+            // 2. Search in url_analyses table by id, url, or normalized_url_hash
+            $normalized = self::normalizeUrl($input);
+            $normalizedHash = hash('sha256', $normalized);
+            $analysis = Db::one(
+                'SELECT * FROM url_analyses WHERE id=? OR normalized_url_hash=? OR url=? LIMIT 1',
+                [$input, $normalizedHash, $input]
+            );
+
             if (!$analysis) {
                 // Fallback: search scans table without user_id restriction for global lookup
-                $scanRow = Db::one('SELECT * FROM scans WHERE id=? LIMIT 1', [$id]);
+                $scanRow = Db::one('SELECT * FROM scans WHERE id=? OR url=? OR hostname=? LIMIT 1', [$input, $input, $input]);
                 if ($scanRow && !empty($scanRow['global_analysis_id'])) {
                     $analysis = Db::one('SELECT * FROM url_analyses WHERE id=? LIMIT 1', [$scanRow['global_analysis_id']]);
                 }
             }
 
             if (!$analysis) {
-                Response::error('Not found', 404);
+                Response::error('Scan report not found', 404);
             }
 
             // Check if current user has scanned this global URL

@@ -214,8 +214,7 @@ function AlertsTab() {
               </time>
               {scanId ? (
                 <Link
-                  to="/scan/$id/result"
-                  params={{ id: scanId }}
+                  to={`/scan/${scanId}/result`}
                   className="ring-focus inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-background px-3 text-xs font-medium hover:bg-hover-surface"
                 >
                   <Eye className="h-3.5 w-3.5" />
@@ -541,8 +540,7 @@ function HistoryTab() {
                       <td className="px-5 py-3">
                         <div className="flex items-center justify-end gap-1.5">
                           <Link
-                            to="/scan/$id/result"
-                            params={{ id: s.id }}
+                            to={`/scan/${s.id}/result`}
                             aria-label={`View report for ${s.url}`}
                             className="ring-focus inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background hover:bg-hover-surface"
                           >
@@ -607,8 +605,7 @@ function HistoryTab() {
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
                     <Link
-                      to="/scan/$id/result"
-                      params={{ id: s.id }}
+                      to={`/scan/${s.id}/result`}
                       className="ring-focus inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-md border border-border bg-background px-3 text-xs font-medium hover:bg-hover-surface"
                     >
                       <Eye className="h-3.5 w-3.5" />
