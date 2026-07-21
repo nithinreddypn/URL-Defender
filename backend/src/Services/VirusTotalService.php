@@ -146,7 +146,8 @@ final class VirusTotalService
 
     private static function urlObjectId(string $url): string
     {
-        return rtrim(strtr(base64_encode(hash('sha256', $url, true)), '+/', '-_'), '=');
+        // VirusTotal API v3 URL identifier is base64url(raw_url_string) without trailing padding
+        return rtrim(strtr(base64_encode($url), '+/', '-_'), '=');
     }
 
     // ---------- mapping ----------
