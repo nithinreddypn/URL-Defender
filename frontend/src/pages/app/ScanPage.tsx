@@ -230,7 +230,6 @@ export default function ScanPage() {
     e.preventDefault();
     if (scanning) return;
     if (atLimit) return;
-    if (lookup.status === "found") return;
 
     const v = validateUrl(url);
     if (v) {
@@ -348,61 +347,52 @@ export default function ScanPage() {
               )}
             >
               <span className="grid w-11 place-items-center text-muted-foreground">
-                <Link2 className="h-4 w-4" />
+                <Globe className="h-5 w-5 transition-colors group-focus-within:text-foreground" />
               </span>
-              <div className="relative min-w-0 flex-1">
-                {!url && !scanning && (
-                  <div
-                    aria-hidden
-                    className="pointer-events-none absolute inset-0 flex items-center pr-3 font-mono text-[15px] text-muted-foreground/70"
-                  >
-                    <span className="truncate">{typed || "https://example.com/page"}</span>
-                    {!reduceMotion && (
-                      <span className="ml-0.5 inline-block h-4 w-[2px] animate-pulse bg-info/80" />
-                    )}
-                  </div>
-                )}
+
+              <div className="relative flex-1">
                 <input
                   id="scan-url"
                   type="text"
-                  inputMode="url"
-                  autoComplete="off"
-                  spellCheck={false}
                   value={url}
-                  disabled={scanning}
                   onChange={(e) => {
                     setUrl(e.target.value);
                     if (error) setError(null);
                   }}
-                  onPaste={(e) => {
-                    const text = e.clipboardData.getData("text");
-                    if (text) {
-                      setTimeout(() => {
-                        const trimmed = text.trim();
-                        if (trimmed) setUrl(trimmed);
-                      }, 0);
-                    }
-                  }}
-                  className="relative w-full bg-transparent py-3.5 pr-3 text-[15px] font-mono placeholder:text-transparent focus:outline-none disabled:opacity-60"
+                  placeholder={
+                    typed
+                      ? typed
+                      : "Paste URL here (e.g. https://example.com/login or paypa1-verify.co)"
+                  }
+                  disabled={scanning}
                   aria-invalid={!!error}
                   aria-describedby={error ? "scan-url-error" : undefined}
+                  className="h-12 w-full bg-transparent pr-8 text-sm font-medium text-foreground placeholder:text-muted-foreground/50 focus:outline-none disabled:opacity-60"
                 />
+                {url && !scanning && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUrl("");
+                      setError(null);
+                    }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground hover:text-foreground"
+                    aria-label="Clear input"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
               </div>
 
               <button
                 type="submit"
-                disabled={scanning || lookup.status === "found"}
+                disabled={scanning}
                 className="ring-focus my-1.5 mr-1.5 inline-flex items-center gap-2 rounded-lg bg-foreground px-5 text-sm font-semibold text-background transition-transform hover:scale-[1.015] active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100"
               >
                 {scanning ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
                     Scanning
-                  </>
-                ) : lookup.status === "found" ? (
-                  <>
-                    <Check className="h-4 w-4" />
-                    Existing analysis
                   </>
                 ) : (
                   <>
