@@ -98,7 +98,8 @@ $router->post('/api/v1/auth/login',           fn($r) => $authC->login($r));
 $router->post('/api/v1/auth/logout',          fn($r) => $authC->logout($r), [$auth]);
 $router->post('/api/v1/auth/forgot-password', fn($r) => $authC->forgotPassword($r));
 $router->post('/api/v1/auth/reset-password',  fn($r) => $authC->resetPassword($r));
-$router->post('/api/v1/auth/google/callback', fn($r) => $authC->googleCallback($r));
+$router->post('/api/auth/google/callback',      fn($r) => $authC->googleCallback($r));
+$router->post('/api/v1/auth/google/callback',    fn($r) => $authC->googleCallback($r));
 
 // me
 $router->get  ('/api/v1/me', fn($r) => $authC->me($r),       [$auth, $verified]);

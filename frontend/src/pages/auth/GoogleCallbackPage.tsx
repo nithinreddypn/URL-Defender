@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { consumeGoogleOAuthResponse } from "@/lib/google-oauth";
+import { apiRequest, setAuthToken } from "@/lib/api";
 
 export default function GoogleCallbackPage() {
   const navigate = useNavigate();
@@ -16,19 +17,15 @@ export default function GoogleCallbackPage() {
 
     const finishSignIn = async () => {
       try {
-        const apiBase = import.meta.env.VITE_API_URL;
-        if (!apiBase) throw new Error("The API URL has not been configured.");
         const { code, verifier } = consumeGoogleOAuthResponse();
-        const response = await fetch(`${apiBase.replace(/\/$/, "")}/api/auth/google/callback`, {
+        const data = await apiRequest<{ token: string }>("/api/auth/google/callback", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ code, code_verifier: verifier }),
         });
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok || typeof data.token !== "string") {
-          throw new Error(data.error || "Google sign-in could not be completed.");
+        if (typeof data.token !== "string") {
+          throw new Error("Google sign-in could not be completed.");
         }
-        localStorage.setItem("url-defender-token", data.token);
+        setAuthToken(data.token);
         navigate("/home", { replace: true });
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : "Google sign-in could not be completed.");
