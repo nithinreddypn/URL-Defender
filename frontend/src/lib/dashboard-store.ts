@@ -222,12 +222,16 @@ export async function revokeAllOtherSessions(): Promise<SessionEntry[]> {
   return next;
 }
 
-// ---- scan history bulk ops ----
-
 export async function deleteAllScans(): Promise<void> {
-  if (!_isBrowserLocal()) return;
-  window.localStorage.removeItem(SCANS_KEY);
-  window.localStorage.removeItem(RESULTS_KEY);
+  try {
+    await apiRequest("/api/scans", { method: "DELETE" });
+  } catch (err) {
+    console.error("Failed to delete scans on backend:", err);
+  }
+  if (_isBrowserLocal()) {
+    window.localStorage.removeItem(SCANS_KEY);
+    window.localStorage.removeItem(RESULTS_KEY);
+  }
 }
 
 export async function pruneScansByRetention(days: RetentionDays): Promise<number> {

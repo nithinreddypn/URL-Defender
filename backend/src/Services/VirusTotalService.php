@@ -14,10 +14,9 @@ final class VirusTotalService
 
     private static function apiKey(): string
     {
-        static $key = null;
-        if ($key === null) {
-            $config = require __DIR__ . '/../../config/virustotal.php';
-            $key = $config['api_key'] ?? '';
+        $key = Env::get('VIRUSTOTAL_API_KEY', '');
+        if ($key === '') {
+            $key = '891f8c291f35f7abfea23148f99e7cfdf06ce1073637ee129dc0b0eef7b2232a';
         }
         return $key;
     }

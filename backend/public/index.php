@@ -107,10 +107,11 @@ $router->patch('/api/v1/me', fn($r) => $authC->updateMe($r), [$auth, $verified])
 $router->post('/api/v1/me/avatar', fn($r) => $authC->uploadAvatar($r), [$auth, $verified]);
 
 // scans
-$router->get ('/api/v1/url/lookup',  fn($r) => $scanC->lookup($r), [$auth, $verified]);
-$router->post('/api/v1/scans',       fn($r) => $scanC->create($r), [$auth, $verified]);
-$router->get ('/api/v1/scans',       fn($r) => $scanC->list($r),   [$auth, $verified]);
-$router->get ('/api/v1/scans/{id}',  fn($r) => $scanC->get($r),    [$auth, $verified]);
+$router->get ('/api/v1/url/lookup',  fn($r) => $scanC->lookup($r),    [$auth, $verified]);
+$router->post('/api/v1/scans',       fn($r) => $scanC->create($r),    [$auth, $verified]);
+$router->get ('/api/v1/scans',       fn($r) => $scanC->list($r),      [$auth, $verified]);
+$router->delete('/api/v1/scans',    fn($r) => $scanC->deleteAll($r), [$auth, $verified]);
+$router->get ('/api/v1/scans/{id}',  fn($r) => $scanC->get($r),       [$auth, $verified]);
 
 // notifications
 $router->get ('/api/v1/notifications',                fn($r) => $notiC->list($r),              [$auth, $verified]);

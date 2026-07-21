@@ -380,6 +380,17 @@ final class ScanController
         return $t ? date('Y-m-d H:i:s', $t) : null;
     }
 
+    // DELETE /api/v1/scans (auth) -> deletes all scans for authenticated user
+    public function deleteAll(Request $req): void
+    {
+        $userId = $req->user['id'];
+        Db::q('DELETE FROM scan_results WHERE scan_id IN (SELECT id FROM scans WHERE user_id=?)', [$userId]);
+        Db::q('DELETE FROM scan_engines WHERE scan_id IN (SELECT id FROM scans WHERE user_id=?)', [$userId]);
+        Db::q('DELETE FROM notifications WHERE user_id=?', [$userId]);
+        $deleted = Db::q('DELETE FROM scans WHERE user_id=?', [$userId]);
+        Response::json(['ok' => true, 'deleted_count' => $deleted]);
+    }
+
     private static function normalizeUrl(string $url): string
     {
         $normalized = strtolower(trim($url));
