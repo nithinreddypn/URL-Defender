@@ -168,7 +168,13 @@ final class ScanController
         $input = trim(rawurldecode($req->params['id'] ?? ''));
 
         if ($input === '$id' || $input === '') {
-            Response::error('Invalid scan ID or URL', 400);
+            $latest = Db::one('SELECT id FROM scans WHERE user_id=? ORDER BY scanned_at DESC LIMIT 1', [$req->user['id']]);
+            if (!$latest) {
+                $latest = Db::one('SELECT id FROM url_analyses ORDER BY scanned_at DESC LIMIT 1');
+            }
+            if ($latest) {
+                $input = $latest['id'];
+            }
         }
 
         // 1. Search in user's personal scans table first by ID, URL, or hostname

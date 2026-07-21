@@ -16,7 +16,7 @@ export default function VerifyEmailPage() {
   const [verified, setVerified] = useState(false);
   const [cooldown, setCooldown] = useState(30);
   const [sending, setSending] = useState(false);
-  const [expiresIn, setExpiresIn] = useState(600); // 10 min
+  const [expiresIn, setExpiresIn] = useState(60); // 1 min (60 seconds)
 
   const inputsRef = useRef<Array<HTMLInputElement | null>>([]);
 
@@ -102,7 +102,7 @@ export default function VerifyEmailPage() {
       });
       setCode(Array(6).fill(""));
       setError(null);
-      setExpiresIn(600);
+      setExpiresIn(60);
       setCooldown(30);
       if (response.email_sent === false) {
         toast.error("We could not send the email. Please try again shortly.");

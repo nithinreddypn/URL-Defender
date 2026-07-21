@@ -39,7 +39,7 @@ final class AuthController
         // Issue OTP
         $code = otp(6);
         Db::q(
-            'INSERT INTO email_verifications (id, user_id, code_hash, expires_at) VALUES (?, ?, ?, DATE_ADD(NOW(), INTERVAL 10 MINUTE))',
+            'INSERT INTO email_verifications (id, user_id, code_hash, expires_at) VALUES (?, ?, ?, DATE_ADD(NOW(), INTERVAL 1 MINUTE))',
             [uuid(), $userId, hashToken($code)]
         );
         $emailSent = MailService::sendOtp($email, $code);
@@ -95,7 +95,7 @@ final class AuthController
 
         $code = otp(6);
         Db::q(
-            'INSERT INTO email_verifications (id, user_id, code_hash, expires_at) VALUES (?, ?, ?, DATE_ADD(NOW(), INTERVAL 10 MINUTE))',
+            'INSERT INTO email_verifications (id, user_id, code_hash, expires_at) VALUES (?, ?, ?, DATE_ADD(NOW(), INTERVAL 1 MINUTE))',
             [uuid(), $user['id'], hashToken($code)]
         );
         $emailSent = MailService::sendOtp($email, $code);

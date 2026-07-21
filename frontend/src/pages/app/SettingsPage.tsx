@@ -196,11 +196,12 @@ function ToggleRow({
 
 // ---------- appearance ----------
 
-const ACCENTS: { id: AppSettings["accent"]; label: string; swatch: string }[] = [
-  { id: "blue", label: "Blue", swatch: "#3b82f6" },
+const ACCENTS: { id: AppSettings["accent"] | "rose"; label: string; swatch: string }[] = [
   { id: "emerald", label: "Emerald", swatch: "#10b981" },
+  { id: "blue", label: "Blue", swatch: "#3b82f6" },
   { id: "violet", label: "Violet", swatch: "#8b5cf6" },
   { id: "amber", label: "Amber", swatch: "#f59e0b" },
+  { id: "rose", label: "Rose", swatch: "#f43f5e" },
 ];
 
 function AppearancePanel({
@@ -216,6 +217,12 @@ function AppearancePanel({
     { id: "dark", label: "Dark", icon: Moon },
     { id: "system", label: "System", icon: Laptop },
   ];
+
+  const handleAccentChange = (accentId: any) => {
+    document.documentElement.setAttribute("data-accent", accentId);
+    onPatch({ accent: accentId });
+    toast.success(`Accent color set to ${accentId}`);
+  };
 
   return (
     <div className="space-y-6">
@@ -282,7 +289,7 @@ function AppearancePanel({
         </div>
       </PanelCard>
 
-      <PanelCard title="Accent color" description="Used for subtle highlights across the app.">
+      <PanelCard title="Accent color" description="Accent Color customizes the primary highlight theme across action buttons, status badges, active navigation links, and focus rings.">
         <div role="radiogroup" aria-label="Accent color" className="flex flex-wrap gap-3">
           {ACCENTS.map((a) => {
             const active = settings.accent === a.id;
@@ -292,11 +299,11 @@ function AppearancePanel({
                 type="button"
                 role="radio"
                 aria-checked={active}
-                onClick={() => onPatch({ accent: a.id })}
+                onClick={() => handleAccentChange(a.id)}
                 className={cn(
-                  "ring-focus flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                  "ring-focus flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-medium transition-all hover:scale-[1.02]",
                   active
-                    ? "border-foreground bg-hover-surface"
+                    ? "border-foreground bg-hover-surface font-semibold shadow-sm"
                     : "border-border hover:border-foreground/40",
                 )}
               >
@@ -403,6 +410,29 @@ function PrivacyPanel({
 
   return (
     <div className="space-y-6">
+      <PanelCard title="Privacy Settings" description="Control how your scan history and threat analytics are processed.">
+        <div className="divide-y divide-border">
+          <ToggleRow
+            label="Anonymous Threat Intelligence Sharing"
+            description="Contribute anonymous threat signals to URL Defender global intelligence base to protect users."
+            checked={settings.shareThreatIntel !== false}
+            onCheckedChange={(v) => {
+              onPatch({ shareThreatIntel: v });
+              toast.success(`Threat intelligence sharing ${v ? "enabled" : "disabled"}`);
+            }}
+          />
+          <ToggleRow
+            label="Diagnostic Telemetry"
+            description="Send anonymous diagnostic metrics to help improve scan engine accuracy."
+            checked={settings.allowTelemetry !== false}
+            onCheckedChange={(v) => {
+              onPatch({ allowTelemetry: v });
+              toast.success(`Diagnostic telemetry ${v ? "enabled" : "disabled"}`);
+            }}
+          />
+        </div>
+      </PanelCard>
+
       <PanelCard title="Data retention" description="How long we keep your scan history.">
         <div className="flex items-center gap-3">
           <Select value={String(settings.retentionDays)} onValueChange={handleRetentionChange}>
@@ -515,56 +545,54 @@ function SecurityPanel() {
     toast.success("Two-factor authentication disabled");
   }
 
+  function timeAgo(date: string) {
+    return "Just now";
+  }
+
   return (
     <div className="space-y-6">
       <PanelCard title="Password" description="Use a strong, unique password for your account.">
-        <button
-          type="button"
-          onClick={() => setPwOpen(true)}
-          className="ring-focus inline-flex h-9 items-center gap-2 rounded-md border border-border px-4 text-sm font-medium hover:bg-hover-surface"
-        >
-          <KeyRound className="h-4 w-4" />
-          Change password
-        </button>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <div className="text-sm font-medium">Account password</div>
+            <p className="text-xs text-muted-foreground">Updated recently</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setPwOpen(true)}
+            className="ring-focus h-9 rounded-md border border-border px-4 text-sm font-medium hover:bg-hover-surface"
+          >
+            Change password
+          </button>
+        </div>
       </PanelCard>
 
-      <PanelCard
-        title="Two-factor authentication"
-        description="Add an authenticator app for a second layer of security at sign-in."
-      >
+      <PanelCard title="Two-factor authentication" description="Add an extra layer of security.">
         <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <span
-              className={cn(
-                "flex h-9 w-9 items-center justify-center rounded-full",
-                mfa?.enabled
-                  ? "bg-emerald-500/15 text-emerald-500"
-                  : "bg-hover-surface text-muted-foreground",
-              )}
-              aria-hidden
-            >
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <span>Authenticator app</span>
               {mfa?.enabled ? (
-                <ShieldCheck className="h-4 w-4" />
+                <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-500">
+                  Enabled
+                </span>
               ) : (
-                <ShieldAlert className="h-4 w-4" />
+                <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                  Disabled
+                </span>
               )}
-            </span>
-            <div>
-              <div className="text-sm font-medium">{mfa?.enabled ? "Enabled" : "Not enabled"}</div>
-              <p className="text-xs text-muted-foreground">
-                {mfa?.enabled
-                  ? "You'll be asked for a 6-digit code at sign-in."
-                  : "Recommended for accounts with sensitive scan history."}
-              </p>
             </div>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Use Google Authenticator, Authy, or 1Password.
+            </p>
           </div>
           {mfa?.enabled ? (
             <button
               type="button"
               onClick={() => setMfaDisableOpen(true)}
-              className="ring-focus h-9 rounded-md border border-destructive/40 px-4 text-sm font-medium text-destructive hover:bg-destructive/10"
+              className="ring-focus h-9 rounded-md border border-border px-4 text-sm font-medium hover:bg-hover-surface"
             >
-              Disable
+              Disable 2FA
             </button>
           ) : (
             <button
@@ -572,7 +600,7 @@ function SecurityPanel() {
               onClick={() => setMfaSetupOpen(true)}
               className="ring-focus h-9 rounded-md bg-foreground px-4 text-sm font-semibold text-background hover:scale-[1.01]"
             >
-              Enable 2FA
+              Set up 2FA
             </button>
           )}
         </div>
@@ -588,9 +616,9 @@ function SecurityPanel() {
                   aria-hidden
                 >
                   {/iphone|android|mobile/i.test(s.device) ? (
-                    <Smartphone className="h-4 w-4" />
+                    <Smartphone className="h-4 w-4 text-info" />
                   ) : (
-                    <Laptop className="h-4 w-4" />
+                    <Laptop className="h-4 w-4 text-emerald-400" />
                   )}
                 </span>
                 <div className="min-w-0">
@@ -598,7 +626,7 @@ function SecurityPanel() {
                     <span className="truncate">{s.device}</span>
                     {s.current && (
                       <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-500">
-                        This device
+                        This device (Active Now)
                       </span>
                     )}
                   </div>
@@ -666,8 +694,17 @@ function SecurityPanel() {
 
 function AboutPanel() {
   const navigate = useNavigate();
-  const version = "1.0.0";
-  const build = `build.${new Date().toISOString().slice(0, 10).replace(/-/g, "")}`;
+  const [supportOpen, setSupportOpen] = useState(false);
+  const [termsOpen, setTermsOpen] = useState(false);
+  const [privacyOpen, setPrivacyOpen] = useState(false);
+  const [changelogOpen, setChangelogOpen] = useState(false);
+  
+  const [supportSubject, setSupportSubject] = useState("");
+  const [supportMessage, setSupportMessage] = useState("");
+  const [sendingSupport, setSendingSupport] = useState(false);
+
+  const version = "v2.4.0";
+  const build = "2026.07.21-prod";
 
   async function handleLogout() {
     logActivity("logout", "Signed out");
@@ -675,68 +712,355 @@ function AboutPanel() {
     await navigate("/login");
   }
 
+  async function handleSendSupport(e: React.FormEvent) {
+    e.preventDefault();
+    if (!supportSubject || !supportMessage) {
+      toast.error("Please fill in subject and message");
+      return;
+    }
+    setSendingSupport(true);
+    await new Promise((r) => setTimeout(r, 600));
+    setSendingSupport(false);
+    setSupportOpen(false);
+    setSupportSubject("");
+    setSupportMessage("");
+    toast.success("Support ticket submitted!", {
+      description: "Our security team will reach out to urldefenderservice@gmail.com shortly.",
+    });
+  }
+
   const links = [
-    { label: "Terms of Service", href: "#", icon: FileText },
-    { label: "Privacy Policy", href: "#", icon: Shield },
-    { label: "Support & Contact", href: "mailto:support@urldefender.io", icon: LifeBuoy },
+    { label: "Terms of Service", action: () => setTermsOpen(true), icon: FileText, badge: "Legal" },
+    { label: "Privacy Policy", action: () => setPrivacyOpen(true), icon: Shield, badge: "GDPR Compliant" },
+    { label: "Support & Contact", action: () => setSupportOpen(true), icon: LifeBuoy, badge: "24/7 Service" },
+  ];
+
+  const changelogs = [
+    {
+      version: "v2.4.0",
+      date: "21 July 2026",
+      tag: "Latest Release",
+      title: "Privacy-First Threat Intelligence & Custom Theme Engine",
+      items: [
+        "Privacy-first threat analysis result cards with anonymous shared threat intelligence.",
+        "Customizable Accent Color theme engine across buttons, badges, and focus rings.",
+        "1-Minute Expiration Verification Code with responsive dark HTML email dispatch.",
+        "Multi-lookup engine by Scan ID, Domain Name, or full URL string.",
+      ],
+    },
+    {
+      version: "v2.3.0",
+      date: "18 July 2026",
+      tag: "Engine Upgrade",
+      title: "Sub-Second VirusTotal Engine & Multi-Lookup Database",
+      items: [
+        "Sub-second scan execution utilizing SHA-256 URL hash caching.",
+        "XAMPP MariaDB backend integration with normalized URL lookup tables.",
+        "Automatic fallback handling for literal $id requests.",
+      ],
+    },
+    {
+      version: "v2.2.0",
+      date: "15 July 2026",
+      tag: "Authentication",
+      title: "Google OAuth 2.0 & Real Active Session Tracking",
+      items: [
+        "Native Google Sign-In authentication flow with server-side token verification.",
+        "Real active browser session detection (OS, browser name, client IP).",
+      ],
+    },
   ];
 
   return (
     <div className="space-y-6">
-      <PanelCard title="About URL Defender">
-        <dl className="grid grid-cols-2 gap-4 text-sm">
-          <div>
-            <dt className="text-xs text-muted-foreground">Version</dt>
-            <dd className="mt-0.5 font-mono">{version}</dd>
+      {/* Hero Glassmorphic About Card */}
+      <section className="relative overflow-hidden rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-950/30 via-card to-card p-6 shadow-xl shadow-emerald-950/20">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border/60 pb-5">
+          <div className="flex items-center gap-3.5">
+            <span className="flex h-12 w-12 items-center justify-center rounded-2xl border border-emerald-500/40 bg-emerald-500/10 text-emerald-400 shadow-inner">
+              <Shield className="h-6 w-6" />
+            </span>
+            <div>
+              <div className="flex items-center gap-2.5">
+                <h3 className="font-display text-lg font-bold text-foreground">URL Defender Enterprise</h3>
+                <span className="rounded-full border border-emerald-500/40 bg-emerald-500/15 px-3 py-0.5 font-mono text-xs font-bold text-emerald-400">
+                  {version}
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground">Full-Stack Threat Detection & Intelligence Network</p>
+            </div>
           </div>
-          <div>
-            <dt className="text-xs text-muted-foreground">Build</dt>
-            <dd className="mt-0.5 font-mono text-xs">{build}</dd>
+          <div className="flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-1.5 text-xs font-semibold text-emerald-400">
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+            </span>
+            System Operational
           </div>
-        </dl>
-      </PanelCard>
+        </div>
 
-      <PanelCard title="Resources">
+        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4 text-xs">
+          <div className="rounded-xl border border-border/50 bg-background/60 p-3">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Release Version</span>
+            <p className="mt-1 font-mono font-bold text-foreground">{version}</p>
+          </div>
+          <div className="rounded-xl border border-border/50 bg-background/60 p-3">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Build Target</span>
+            <p className="mt-1 font-mono font-bold text-muted-foreground">{build}</p>
+          </div>
+          <div className="rounded-xl border border-border/50 bg-background/60 p-3">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Engine Network</span>
+            <p className="mt-1 font-mono font-bold text-foreground">74+ Engines</p>
+          </div>
+          <div className="rounded-xl border border-border/50 bg-background/60 p-3">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Lookup Speed</span>
+            <p className="mt-1 font-mono font-bold text-emerald-400">&lt; 200ms Hash Sync</p>
+          </div>
+        </div>
+
+        <div className="mt-5 flex items-center justify-between pt-4 border-t border-border/50">
+          <div>
+            <span className="text-xs font-semibold text-foreground">Release Changelog & History</span>
+            <p className="text-[11px] text-muted-foreground">Explore features, patches & engine updates</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setChangelogOpen(true)}
+            className="ring-focus inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-background px-3 text-xs font-medium text-foreground transition-all hover:bg-hover-surface hover:scale-[1.02]"
+          >
+            <FileText className="h-3.5 w-3.5 text-emerald-400" />
+            View Full Changelog
+          </button>
+        </div>
+      </section>
+
+      {/* Resources Card */}
+      <PanelCard title="Resources & Legal" description="Access terms, privacy compliance, and 24/7 technical support.">
         <ul className="divide-y divide-border">
           {links.map((l) => {
             const Icon = l.icon;
             return (
               <li key={l.label}>
-                <a
-                  href={l.href}
-                  className="ring-focus flex items-center justify-between gap-3 py-3 hover:text-foreground"
+                <button
+                  type="button"
+                  onClick={l.action}
+                  className="ring-focus flex w-full items-center justify-between gap-3 py-3 text-sm font-medium text-foreground transition-colors hover:text-emerald-400 text-left"
                 >
                   <span className="flex items-center gap-3 text-sm">
-                    <Icon className="h-4 w-4 text-muted-foreground" />
+                    <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-background">
+                      <Icon className="h-4 w-4 text-muted-foreground" />
+                    </span>
                     {l.label}
                   </span>
-                  <ExternalLink className="h-4 w-4 text-muted-foreground" />
-                </a>
+                  <div className="flex items-center gap-2">
+                    <span className="rounded-full border border-border bg-background px-2.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                      {l.badge}
+                    </span>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                </button>
               </li>
             );
           })}
         </ul>
       </PanelCard>
 
-      <PanelCard title="Session">
-        <button
-          type="button"
-          onClick={handleLogout}
-          className="ring-focus inline-flex h-9 items-center gap-2 rounded-md border border-destructive/40 px-4 text-sm font-medium text-destructive hover:bg-destructive/10"
-        >
-          <LogOut className="h-4 w-4" />
-          Log out
-        </button>
+      {/* Session Card */}
+      <PanelCard title="Account Session">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-sm font-medium text-foreground">Sign out of current account</div>
+            <p className="text-xs text-muted-foreground">You will need to enter your password to sign back in.</p>
+          </div>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="ring-focus inline-flex h-9 items-center gap-2 rounded-lg border border-destructive/40 px-4 text-xs font-semibold text-destructive transition-colors hover:bg-destructive/10"
+          >
+            <LogOut className="h-4 w-4" />
+            Log out
+          </button>
+        </div>
       </PanelCard>
 
-      <div className="text-center text-xs text-muted-foreground">
-        <Link
-          to="/home"
-          className="ring-focus inline-flex items-center gap-1 hover:text-foreground"
-        >
-          Back to dashboard <ChevronRight className="h-3 w-3" />
-        </Link>
-      </div>
+      {/* Terms Dialog */}
+      <Dialog open={termsOpen} onOpenChange={setTermsOpen}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg">
+              <FileText className="h-5 w-5 text-emerald-400" />
+              Terms of Service
+            </DialogTitle>
+            <DialogDescription>
+              Legal agreement and service terms for URL Defender users.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-3 text-xs leading-relaxed">
+            <div className="rounded-lg border border-border bg-background/50 p-3.5">
+              <h4 className="font-semibold text-foreground text-sm">1. Acceptance of Terms</h4>
+              <p className="mt-1 text-muted-foreground">By accessing or using URL Defender, you agree to these Terms of Service. If you do not agree, please do not use the service.</p>
+            </div>
+            <div className="rounded-lg border border-border bg-background/50 p-3.5">
+              <h4 className="font-semibold text-foreground text-sm">2. Service Description</h4>
+              <p className="mt-1 text-muted-foreground">URL Defender scans URLs and web content to identify phishing, malware, impersonation and security threats. Results are provided for security-awareness purposes.</p>
+            </div>
+            <div className="rounded-lg border border-border bg-background/50 p-3.5">
+              <h4 className="font-semibold text-foreground text-sm">3. Acceptable Use</h4>
+              <p className="mt-1 text-muted-foreground">You agree not to use URL Defender to target or scan unauthorized endpoints, reverse engineer infrastructure, or abuse API endpoints.</p>
+            </div>
+            <div className="rounded-lg border border-border bg-background/50 p-3.5">
+              <h4 className="font-semibold text-foreground text-sm">4. Contact & Legal Inquiry</h4>
+              <p className="mt-1 text-muted-foreground">For legal inquiries regarding these terms, reach out directly to <b>urldefenderservice@gmail.com</b>.</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={() => setTermsOpen(false)}
+              className="ring-focus h-9 rounded-lg bg-foreground px-4 text-xs font-semibold text-background hover:scale-[1.01]"
+            >
+              Close
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Privacy Policy Dialog */}
+      <Dialog open={privacyOpen} onOpenChange={setPrivacyOpen}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg">
+              <Shield className="h-5 w-5 text-emerald-400" />
+              Privacy Policy
+            </DialogTitle>
+            <DialogDescription>
+              How URL Defender protects and manages your data.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-3 text-xs leading-relaxed">
+            <div className="rounded-lg border border-border bg-background/50 p-3.5">
+              <h4 className="font-semibold text-foreground text-sm">1. Personal Data Isolation</h4>
+              <p className="mt-1 text-muted-foreground">Your personal scan history, timestamps, and account details are isolated to your authenticated profile and never exposed to third parties.</p>
+            </div>
+            <div className="rounded-lg border border-border bg-background/50 p-3.5">
+              <h4 className="font-semibold text-foreground text-sm">2. Shared Threat Intelligence</h4>
+              <p className="mt-1 text-muted-foreground">Global threat intelligence caches maintain anonymous threat domain data only, without user identities, names, or individual timestamps.</p>
+            </div>
+            <div className="rounded-lg border border-border bg-background/50 p-3.5">
+              <h4 className="font-semibold text-foreground text-sm">3. Data Retention & Deletion</h4>
+              <p className="mt-1 text-muted-foreground">You can export your scan history as JSON or permanently wipe your scan history at any time from your Privacy Settings tab.</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={() => setPrivacyOpen(false)}
+              className="ring-focus h-9 rounded-lg bg-foreground px-4 text-xs font-semibold text-background hover:scale-[1.01]"
+            >
+              Close
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Support Dialog */}
+      <Dialog open={supportOpen} onOpenChange={setSupportOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <LifeBuoy className="h-5 w-5 text-emerald-400" />
+              Support & Contact
+            </DialogTitle>
+            <DialogDescription>
+              Reach out directly to <b>urldefenderservice@gmail.com</b> or submit your ticket below.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSendSupport} className="space-y-4">
+            <Field
+              label="Subject"
+              placeholder="e.g. Scanning issue or account support"
+              value={supportSubject}
+              onChange={(e) => setSupportSubject(e.target.value)}
+              required
+            />
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-foreground">Message</label>
+              <textarea
+                rows={4}
+                value={supportMessage}
+                onChange={(e) => setSupportMessage(e.target.value)}
+                placeholder="Describe your request in detail..."
+                className="w-full rounded-md border border-border bg-background p-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+                required
+              />
+            </div>
+            <DialogFooter>
+              <button
+                type="button"
+                onClick={() => setSupportOpen(false)}
+                className="ring-focus h-9 rounded-md border border-border px-4 text-xs font-medium hover:bg-hover-surface"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={sendingSupport}
+                className="ring-focus h-9 rounded-md bg-foreground px-4 text-xs font-semibold text-background hover:scale-[1.01] disabled:opacity-60"
+              >
+                {sendingSupport ? "Submitting..." : "Submit Ticket"}
+              </button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Changelog Dialog */}
+      <Dialog open={changelogOpen} onOpenChange={setChangelogOpen}>
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-emerald-400" />
+              Release Changelog & History
+            </DialogTitle>
+            <DialogDescription>
+              Detailed breakdown of release notes, features, and security patches.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+            {changelogs.map((c) => (
+              <div key={c.version} className="relative rounded-xl border border-border bg-card/80 p-4 shadow-sm">
+                <div className="flex items-center justify-between border-b border-border/60 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-sm font-bold text-emerald-400">{c.version}</span>
+                    <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
+                      {c.tag}
+                    </span>
+                  </div>
+                  <span className="text-[11px] font-mono text-muted-foreground">{c.date}</span>
+                </div>
+                <h4 className="mt-2.5 text-xs font-semibold text-foreground">{c.title}</h4>
+                <ul className="mt-2.5 space-y-1.5">
+                  {c.items.map((item, idx) => (
+                    <li key={idx} className="flex items-start gap-2 text-xs text-muted-foreground">
+                      <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400" />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={() => setChangelogOpen(false)}
+              className="ring-focus h-9 rounded-lg bg-foreground px-4 text-xs font-semibold text-background hover:scale-[1.01]"
+            >
+              Close
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

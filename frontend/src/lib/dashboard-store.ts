@@ -155,48 +155,49 @@ export type SessionEntry = {
   current: boolean;
 };
 
-function seedSessions(): SessionEntry[] {
-  const now = Date.now();
-  return [
-    {
-      id: "sess_current",
-      device: "MacBook Pro",
-      browser: "Chrome 126",
-      location: "Bengaluru, IN",
-      lastActive: new Date(now).toISOString(),
-      current: true,
-    },
-    {
-      id: "sess_iphone",
-      device: "iPhone 15",
-      browser: "Safari",
-      location: "Bengaluru, IN",
-      lastActive: new Date(now - 1000 * 60 * 60 * 3).toISOString(),
-      current: false,
-    },
-    {
-      id: "sess_windows",
-      device: "Windows PC",
-      browser: "Edge",
-      location: "Hyderabad, IN",
-      lastActive: new Date(now - 1000 * 60 * 60 * 26).toISOString(),
-      current: false,
-    },
-  ];
+function getRealCurrentSession(): SessionEntry {
+  const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
+  let os = "Desktop Device";
+  if (/windows nt 10/i.test(ua)) os = "Windows 10/11 Workstation";
+  else if (/windows/i.test(ua)) os = "Windows PC";
+  else if (/macintosh|mac os x/i.test(ua)) os = "macOS Workstation";
+  else if (/iphone/i.test(ua)) os = "iPhone";
+  else if (/ipad/i.test(ua)) os = "iPad";
+  else if (/android/i.test(ua)) os = "Android Device";
+  else if (/linux/i.test(ua)) os = "Linux Workstation";
+
+  let browser = "Web Browser";
+  if (/edg/i.test(ua)) browser = "Microsoft Edge";
+  else if (/chrome|crios/i.test(ua)) browser = "Google Chrome";
+  else if (/firefox|fxios/i.test(ua)) browser = "Mozilla Firefox";
+  else if (/safari/i.test(ua)) browser = "Apple Safari";
+
+  return {
+    id: "sess_real_active",
+    device: os,
+    browser: browser,
+    location: "127.0.0.1 (Active Local Session)",
+    lastActive: new Date().toISOString(),
+    current: true,
+  };
 }
 
 export async function fetchSessions(): Promise<SessionEntry[]> {
-  if (!_isBrowserLocal()) return seedSessions();
+  const currentSession = getRealCurrentSession();
+  if (!_isBrowserLocal()) return [currentSession];
   try {
     const raw = window.localStorage.getItem(SESSIONS_KEY);
     if (!raw) {
-      const seeded = seedSessions();
-      window.localStorage.setItem(SESSIONS_KEY, JSON.stringify(seeded));
-      return seeded;
+      window.localStorage.setItem(SESSIONS_KEY, JSON.stringify([currentSession]));
+      return [currentSession];
     }
-    return JSON.parse(raw) as SessionEntry[];
+    const list = JSON.parse(raw) as SessionEntry[];
+    if (!Array.isArray(list) || list.length === 0) return [currentSession];
+    // Ensure the current live session is always present at index 0
+    const others = list.filter((s) => !s.current);
+    return [currentSession, ...others];
   } catch {
-    return seedSessions();
+    return [currentSession];
   }
 }
 
