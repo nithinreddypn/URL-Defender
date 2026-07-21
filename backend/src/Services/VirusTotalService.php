@@ -8,9 +8,9 @@ use App\Core\{Env, Response};
 final class VirusTotalService
 {
     private const BASE = 'https://www.virustotal.com/api/v3';
-    private const POLL_MAX_MS = 18000;
-    private const POLL_INTERVAL_MS = 900;
-    private const POLL_MIN_ENGINES = 15;
+    private const POLL_MAX_MS = 3500;
+    private const POLL_INTERVAL_MS = 250;
+    private const POLL_MIN_ENGINES = 5;
 
     private static function apiKey(): string
     {
@@ -38,12 +38,11 @@ final class VirusTotalService
         $urlObjectId = self::urlObjectId($url);
         $cached = self::fetchUrlObject($urlObjectId);
         $cachedStats = $cached['data']['attributes']['last_analysis_stats'] ?? null;
-        $cachedTotal = self::total($cachedStats);
 
         $analysis = null;
         $urlObj   = $cached;
 
-        if (!$cached || $cachedTotal < self::POLL_MIN_ENGINES) {
+        if (!$cached || empty($cachedStats)) {
             $analysisId = self::submitUrl($url);
             $analysis   = self::pollAnalysis($analysisId);
             if (!$urlObj) $urlObj = self::fetchUrlObject($urlObjectId);

@@ -221,9 +221,9 @@ export default function ScanPage() {
   const atLimit = !!usage && usage.used >= usage.limit;
 
   const stageDurations = useMemo(() => {
-    if (reduceMotion) return STAGES.map(() => 80);
-    // 260–400ms per stage — keep animation snappy; real fetch runs in parallel.
-    return STAGES.map(() => 260 + Math.floor(Math.random() * 140));
+    if (reduceMotion) return STAGES.map(() => 50);
+    // 120–180ms per stage — ultra snappy scan progression
+    return STAGES.map(() => 120 + Math.floor(Math.random() * 60));
   }, [reduceMotion]);
 
   async function runScan(e: React.FormEvent) {
