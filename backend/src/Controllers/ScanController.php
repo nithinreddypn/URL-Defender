@@ -103,14 +103,11 @@ final class ScanController
         $normalizedUrl = self::normalizeUrl($input);
         if ($normalizedUrl === '') Response::error('Invalid URL', 422);
 
-        $analysis = self::findGlobalAnalysis($normalizedUrl, hash('sha256', $normalizedUrl));
-        if (!$analysis) Response::json(['success' => true, 'exists' => false]);
-
         $u = Db::one('SELECT scans_cleared_at FROM users WHERE id=? LIMIT 1', [$req->user['id']]);
         $clearedAt = $u['scans_cleared_at'] ?? null;
 
-        $historyQuery = 'SELECT id, scanned_at FROM scans WHERE user_id=? AND global_analysis_id=?';
-        $historyParams = [$req->user['id'], $analysis['id']];
+        $historyQuery = 'SELECT id, global_analysis_id, verdict, risk_score, threat_category, scanned_at FROM scans WHERE user_id=? AND normalized_url=?';
+        $historyParams = [$req->user['id'], $normalizedUrl];
         if ($clearedAt) {
             $historyQuery .= ' AND created_at > ?';
             $historyParams[] = $clearedAt;
@@ -118,30 +115,46 @@ final class ScanController
         $historyQuery .= ' ORDER BY scanned_at DESC LIMIT 1';
 
         $history = Db::one($historyQuery, $historyParams);
-        $result = json_decode((string) $analysis['raw_response'], true);
+        if (!$history) {
+            Response::json(['success' => true, 'exists' => false]);
+        }
+
+        $analysis = null;
+        if (!empty($history['global_analysis_id'])) {
+            $analysis = Db::one('SELECT * FROM url_analyses WHERE id=? LIMIT 1', [$history['global_analysis_id']]);
+        }
+        if (!$analysis) {
+            $analysis = self::findGlobalAnalysis($normalizedUrl, hash('sha256', $normalizedUrl));
+        }
+
+        $result = $analysis ? json_decode((string) $analysis['raw_response'], true) : null;
         $domain = parse_url($input, PHP_URL_HOST) ?: $input;
         if (str_starts_with($domain, 'www.')) $domain = substr($domain, 4);
+
+        $verdict = $history['verdict'] ?? ($analysis['verdict'] ?? 'safe');
+        $riskScore = (int) ($history['risk_score'] ?? ($analysis['risk_score'] ?? 0));
+        $category = $history['threat_category'] ?? ($analysis['threat_category'] ?? 'Uncategorized');
 
         Response::json([
             'success' => true,
             'exists' => true,
             'data' => [
-                'id' => $history['id'] ?? $analysis['id'],
-                'global_analysis_id' => $analysis['id'],
+                'id' => $history['id'],
+                'global_analysis_id' => $history['global_analysis_id'] ?? ($analysis['id'] ?? null),
                 'url' => $input,
                 'domain' => $domain,
-                'status' => ucfirst((string) $analysis['verdict']),
-                'verdict' => $analysis['verdict'],
-                'risk_score' => (int) $analysis['risk_score'],
-                'category' => $analysis['threat_category'] ?: 'Uncategorized',
-                'threat_type' => is_array($result) ? (($result['blacklist']['sources'][0] ?? null) ?: (($analysis['verdict'] ?? '') === 'safe' ? 'No threat detected' : 'Threat signal detected')) : 'Unavailable',
+                'status' => ucfirst((string) $verdict),
+                'verdict' => $verdict,
+                'risk_score' => $riskScore,
+                'category' => $category ?: 'Uncategorized',
+                'threat_type' => is_array($result) ? (($result['blacklist']['sources'][0] ?? null) ?: ($verdict === 'safe' ? 'No threat detected' : 'Threat signal detected')) : 'Unavailable',
                 'ssl_status' => is_array($result) ? ($result['ssl']['status'] ?? 'unknown') : 'unknown',
                 'redirect_count' => is_array($result) ? max(0, count($result['redirect_chain'] ?? []) - 1) : 0,
-                'first_detected_at' => $analysis['first_detected_at'],
+                'first_detected_at' => $analysis['first_detected_at'] ?? $history['scanned_at'],
                 'last_analysis_status' => 'Recent',
-                'personal_last_scanned' => $history['scanned_at'] ?? null,
+                'personal_last_scanned' => $history['scanned_at'],
                 'source' => 'URL Defender Threat Intelligence',
-                'in_history' => $history !== null,
+                'in_history' => true,
                 'result' => is_array($result) ? $result : null,
             ],
         ]);
