@@ -14,11 +14,7 @@ final class VirusTotalService
 
     private static function apiKey(): string
     {
-        $key = Env::get('VIRUSTOTAL_API_KEY', '');
-        if ($key === '') {
-            $key = '891f8c291f35f7abfea23148f99e7cfdf06ce1073637ee129dc0b0eef7b2232a';
-        }
-        return $key;
+        return Env::get('VIRUSTOTAL_API_KEY', '');
     }
 
     public static function isConfigured(): bool

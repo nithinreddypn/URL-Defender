@@ -75,7 +75,10 @@ final class ScanController
         }
 
         $globalId = self::storeGlobalAnalysis($url, $normalizedUrl, $normalizedHash, $result);
-        Db::q('UPDATE scans SET global_analysis_id=? WHERE id=?', [$globalId, $scanId]);
+        Db::q(
+            'UPDATE scans SET global_analysis_id=?, verdict=?, risk_score=?, threat_category=?, scanned_at=NOW() WHERE id=?',
+            [$globalId, $result['verdict'], $result['risk_score'], $result['threat_category'] ?? null, $scanId]
+        );
         self::storeScanResult($scanId, $result);
 
         // Bump quota
@@ -95,19 +98,23 @@ final class ScanController
     public function lookup(Request $req): void
     {
         $input = trim((string) ($req->query['url'] ?? ''));
-        if ($input === '' || strlen($input) > 2048) Response::error('Invalid URL', 422);
+        if ($input === '' || strlen($input) > 2048) {
+            Response::json(['success' => true, 'exists' => false]);
+        }
 
         $validationUrl = preg_match('#^https?://#i', $input) ? $input : "https://{$input}";
-        if (!isUrl($validationUrl)) Response::error('Invalid URL', 422);
+        if (!isUrl($validationUrl)) {
+            Response::json(['success' => true, 'exists' => false]);
+        }
 
         $normalizedUrl = self::normalizeUrl($input);
-        if ($normalizedUrl === '') Response::error('Invalid URL', 422);
+        $host = hostnameOf($validationUrl);
 
         $u = Db::one('SELECT scans_cleared_at FROM users WHERE id=? LIMIT 1', [$req->user['id']]);
         $clearedAt = $u['scans_cleared_at'] ?? null;
 
-        $historyQuery = 'SELECT id, global_analysis_id, verdict, risk_score, threat_category, scanned_at FROM scans WHERE user_id=? AND normalized_url=?';
-        $historyParams = [$req->user['id'], $normalizedUrl];
+        $historyQuery = 'SELECT id, global_analysis_id, verdict, risk_score, threat_category, scanned_at FROM scans WHERE user_id=? AND (normalized_url=? OR hostname=? OR url=?)';
+        $historyParams = [$req->user['id'], $normalizedUrl, $host, $input];
         if ($clearedAt) {
             $historyQuery .= ' AND created_at > ?';
             $historyParams[] = $clearedAt;
