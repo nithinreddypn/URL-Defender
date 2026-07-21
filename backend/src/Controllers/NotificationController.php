@@ -44,4 +44,23 @@ final class NotificationController
         Db::q('UPDATE notifications SET dismissed=1 WHERE user_id=?', [$req->user['id']]);
         Response::json(['ok' => true]);
     }
+
+    // POST /api/notifications/weekly-summary
+    public function sendWeeklySummary(Request $req): void
+    {
+        $userId = $req->user['id'];
+        $userEmail = $req->user['email'];
+        
+        $totalScans = (int) (Db::one('SELECT COUNT(*) c FROM scans WHERE user_id=?', [$userId])['c'] ?? 0);
+        $threatsFound = (int) (Db::one('SELECT COUNT(*) c FROM scans WHERE user_id=? AND verdict IN ("dangerous", "suspicious")', [$userId])['c'] ?? 0);
+        $safeUrls = max(0, $totalScans - $threatsFound);
+
+        $sent = \App\Services\MailService::sendWeeklySummary($userEmail, [
+            'total_scans' => max(1, $totalScans),
+            'threats_found' => $threatsFound,
+            'safe_urls' => $safeUrls,
+        ]);
+
+        Response::json(['ok' => true, 'email_sent' => $sent]);
+    }
 }

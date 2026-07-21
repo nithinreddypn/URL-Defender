@@ -352,6 +352,8 @@ final class ScanController
     private static function notifyThreat(string $userId, string $scanId, string $host, array $result): void
     {
         if (($result['verdict'] ?? 'safe') === 'safe') return;
+        
+        // 1. Insert in-app notification
         Db::q(
             'INSERT INTO notifications (id, user_id, scan_id, type, title, message, severity)
              VALUES (?, ?, ?, "threat_detected", ?, ?, ?)',
@@ -359,6 +361,16 @@ final class ScanController
              "Scan of {$host} returned verdict: {$result['verdict']}.",
              $result['verdict'] === 'dangerous' ? 'critical' : 'warning']
         );
+
+        // 2. Dispatch Email Alert to user's email address
+        try {
+            $user = Db::one('SELECT email FROM users WHERE id=? LIMIT 1', [$userId]);
+            if (!empty($user['email'])) {
+                MailService::sendThreatAlert($user['email'], $host, $result);
+            }
+        } catch (\Throwable $e) {
+            error_log('Failed to send threat email alert: ' . $e->getMessage());
+        }
     }
 
     private static function toMysql(?string $iso): ?string

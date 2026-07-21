@@ -113,10 +113,11 @@ $router->get ('/api/v1/scans',       fn($r) => $scanC->list($r),   [$auth, $veri
 $router->get ('/api/v1/scans/{id}',  fn($r) => $scanC->get($r),    [$auth, $verified]);
 
 // notifications
-$router->get ('/api/v1/notifications',            fn($r) => $notiC->list($r),    [$auth, $verified]);
-$router->post('/api/v1/notifications/read-all',   fn($r) => $notiC->readAll($r), [$auth, $verified]);
-$router->post('/api/v1/notifications/clear',      fn($r) => $notiC->clear($r),   [$auth, $verified]);
-$router->post('/api/v1/notifications/{id}/read',  fn($r) => $notiC->readOne($r), [$auth, $verified]);
+$router->get ('/api/v1/notifications',                fn($r) => $notiC->list($r),              [$auth, $verified]);
+$router->post('/api/v1/notifications/read-all',       fn($r) => $notiC->readAll($r),           [$auth, $verified]);
+$router->post('/api/v1/notifications/clear',          fn($r) => $notiC->clear($r),             [$auth, $verified]);
+$router->post('/api/v1/notifications/weekly-summary', fn($r) => $notiC->sendWeeklySummary($r), [$auth, $verified]);
+$router->post('/api/v1/notifications/{id}/read',      fn($r) => $notiC->readOne($r),           [$auth, $verified]);
 
 // payments
 $router->post('/api/v1/payments/order',   fn($r) => $payC->createOrder($r), [$auth, $verified]);

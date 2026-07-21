@@ -187,16 +187,23 @@ export async function fetchSessions(): Promise<SessionEntry[]> {
   if (!_isBrowserLocal()) return [currentSession];
   try {
     const raw = window.localStorage.getItem(SESSIONS_KEY);
+    const mockSeedIds = new Set(["sess_current", "sess_iphone", "sess_windows"]);
     if (!raw) {
       window.localStorage.setItem(SESSIONS_KEY, JSON.stringify([currentSession]));
       return [currentSession];
     }
     const list = JSON.parse(raw) as SessionEntry[];
-    if (!Array.isArray(list) || list.length === 0) return [currentSession];
-    // Ensure the current live session is always present at index 0
-    const others = list.filter((s) => !s.current);
-    return [currentSession, ...others];
+    if (!Array.isArray(list) || list.length === 0) {
+      window.localStorage.setItem(SESSIONS_KEY, JSON.stringify([currentSession]));
+      return [currentSession];
+    }
+    // Filter out mock seed data and keep only real user sessions
+    const realOthers = list.filter((s) => !s.current && !mockSeedIds.has(s.id));
+    const result = [currentSession, ...realOthers];
+    window.localStorage.setItem(SESSIONS_KEY, JSON.stringify(result));
+    return result;
   } catch {
+    window.localStorage.setItem(SESSIONS_KEY, JSON.stringify([currentSession]));
     return [currentSession];
   }
 }

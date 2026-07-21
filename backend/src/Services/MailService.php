@@ -294,6 +294,186 @@ final class MailService
         return self::send($to, 'Reset your URL Defender password', $html);
     }
 
+    public static function sendThreatAlert(string $to, string $host, array $result): bool
+    {
+        $year = date('Y');
+        $verdict = strtoupper((string)($result['verdict'] ?? 'DANGEROUS'));
+        $riskScore = (int)($result['risk_score'] ?? 95);
+        $threatCategory = htmlspecialchars((string)($result['threat_category'] ?? 'Phishing / Malware'));
+        $isDanger = strtolower($verdict) === 'dangerous';
+        $badgeColor = $isDanger ? '#ef4444' : '#f59e0b';
+        $bgBadge = $isDanger ? 'rgba(239,68,68,0.15)' : 'rgba(245,158,11,0.15)';
+        $borderBadge = $isDanger ? 'rgba(239,68,68,0.4)' : 'rgba(245,158,11,0.4)';
+
+        $html = "
+        <!DOCTYPE html>
+        <html lang='en'>
+        <head>
+          <meta charset='utf-8'>
+          <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+          <title>Threat Alert — URL Defender</title>
+        </head>
+        <body style='margin:0;padding:0;background-color:#090d16;font-family:-apple-system,BlinkMacSystemFont,\"Segoe UI\",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;'>
+          <table width='100%' border='0' cellspacing='0' cellpadding='0' style='background-color:#090d16;padding:40px 16px;'>
+            <tr>
+              <td align='center'>
+                <table width='100%' border='0' cellspacing='0' cellpadding='0' style='max-width:540px;background-color:#0f172a;border-radius:20px;border:1px solid #1e293b;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,0.7);'>
+                  
+                  <!-- Top Header -->
+                  <tr>
+                    <td style='padding:32px 36px 28px;text-align:center;background:linear-gradient(180deg, #1f1315 0%, #0f172a 100%);border-bottom:1px solid #1e293b;'>
+                      <table align='center' border='0' cellspacing='0' cellpadding='0'>
+                        <tr>
+                          <td style='padding-right:12px;'>
+                            <div style='width:44px;height:44px;background:{$bgBadge};border:1px solid {$borderBadge};border-radius:12px;text-align:center;line-height:44px;'>
+                              <span style='font-size:22px;'>🚨</span>
+                            </div>
+                          </td>
+                          <td style='text-align:left;'>
+                            <div style='color:#f8fafc;font-size:18px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;'>URL DEFENDER</div>
+                            <div style='color:{$badgeColor};font-size:11px;font-weight:700;letter-spacing:1px;'>CRITICAL THREAT DISPATCH</div>
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+
+                  <!-- Main Content Area -->
+                  <tr>
+                    <td style='padding:36px 36px 28px;'>
+                      <div style='text-align:center;margin-bottom:24px;'>
+                        <span style='display:inline-block;padding:6px 14px;background-color:{$bgBadge};border:1px solid {$borderBadge};border-radius:9999px;color:{$badgeColor};font-size:12px;font-weight:800;letter-spacing:1px;text-transform:uppercase;'>
+                          {$verdict} THREAT DETECTED
+                        </span>
+                      </div>
+
+                      <h1 style='color:#f8fafc;font-size:22px;font-weight:700;margin:0 0 12px;text-align:center;'>Malicious Link Flagged</h1>
+                      <p style='color:#94a3b8;font-size:14px;line-height:1.6;margin:0 0 28px;text-align:center;'>
+                        URL Defender Threat Engine has detected a <b>{$verdict}</b> security threat during your recent scan analysis. Do not visit or submit credentials to this link:
+                      </p>
+
+                      <!-- Threat Detail Box -->
+                      <div style='background-color:#020617;border:1px solid #1e293b;border-radius:14px;padding:20px;margin:0 0 24px;'>
+                        <div style='margin-bottom:12px;'>
+                          <span style='color:#64748b;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;'>Scanned Target Domain</span>
+                          <p style='color:#f8fafc;font-family:monospace;font-size:15px;font-weight:700;margin:4px 0 0;word-break:break-all;'>{$host}</p>
+                        </div>
+                        <div style='display:table;width:100%;border-top:1px solid #1e293b;padding-top:12px;margin-top:12px;'>
+                          <div style='display:table-cell;width:50%;'>
+                            <span style='color:#64748b;font-size:10px;font-weight:700;text-transform:uppercase;'>Risk Score</span>
+                            <p style='color:{$badgeColor};font-size:18px;font-weight:800;margin:2px 0 0;'>{$riskScore} / 100</p>
+                          </div>
+                          <div style='display:table-cell;width:50%;'>
+                            <span style='color:#64748b;font-size:10px;font-weight:700;text-transform:uppercase;'>Threat Category</span>
+                            <p style='color:#cbd5e1;font-size:13px;font-weight:600;margin:2px 0 0;'>{$threatCategory}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Action Button -->
+                      <div style='text-align:center;margin:0 0 28px;'>
+                        <a href='http://localhost:3000/alerts' style='display:inline-block;background:#ef4444;color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;padding:14px 32px;border-radius:10px;box-shadow:0 8px 16px -4px rgba(239,68,68,0.5);'>
+                          View Threat Report →
+                        </a>
+                      </div>
+
+                      <p style='color:#64748b;font-size:12px;line-height:1.5;margin:0;text-align:center;'>
+                        This threat alert was dispatched automatically based on your alert preferences.
+                      </p>
+                    </td>
+                  </tr>
+
+                  <!-- Footer -->
+                  <tr>
+                    <td style='padding:24px 36px;background-color:#090d16;border-top:1px solid #1e293b;text-align:center;'>
+                      <p style='color:#64748b;font-size:12px;margin:0 0 6px;'><b>URL Defender Security Operations Center</b></p>
+                      <p style='color:#475569;font-size:11px;margin:0;'>© {$year} URL Defender Inc. All rights reserved.</p>
+                    </td>
+                  </tr>
+
+                </table>
+              </td>
+            </tr>
+          </table>
+        </body>
+        </html>
+        ";
+        return self::send($to, "🚨 [Threat Alert] {$verdict} URL Flagged: {$host}", $html);
+    }
+
+    public static function sendWeeklySummary(string $to, array $summary): bool
+    {
+        $year = date('Y');
+        $totalScans = (int)($summary['total_scans'] ?? 14);
+        $threatsFound = (int)($summary['threats_found'] ?? 2);
+        $safeUrls = (int)($summary['safe_urls'] ?? 12);
+
+        $html = "
+        <!DOCTYPE html>
+        <html lang='en'>
+        <head>
+          <meta charset='utf-8'>
+          <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+          <title>Weekly Security Summary — URL Defender</title>
+        </head>
+        <body style='margin:0;padding:0;background-color:#090d16;font-family:-apple-system,BlinkMacSystemFont,\"Segoe UI\",Roboto,Helvetica,Arial,sans-serif;'>
+          <table width='100%' border='0' cellspacing='0' cellpadding='0' style='background-color:#090d16;padding:40px 16px;'>
+            <tr>
+              <td align='center'>
+                <table width='100%' border='0' cellspacing='0' cellpadding='0' style='max-width:540px;background-color:#0f172a;border-radius:20px;border:1px solid #1e293b;overflow:hidden;'>
+                  
+                  <!-- Top Header -->
+                  <tr>
+                    <td style='padding:32px 36px 28px;text-align:center;background:linear-gradient(180deg, #131c2e 0%, #0f172a 100%);border-bottom:1px solid #1e293b;'>
+                      <div style='color:#10b981;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;'>📊 WEEKLY DIGEST</div>
+                      <h1 style='color:#f8fafc;font-size:22px;font-weight:700;margin:0 0 6px;'>Weekly Security Summary</h1>
+                      <p style='color:#94a3b8;font-size:13px;margin:0;'>Your personal URL scan activity breakdown</p>
+                    </td>
+                  </tr>
+
+                  <!-- Content Area -->
+                  <tr>
+                    <td style='padding:32px 36px;'>
+                      <div style='display:table;width:100%;margin-bottom:24px;'>
+                        <div style='display:table-cell;width:33%;text-align:center;background:#020617;border:1px solid #1e293b;border-radius:12px;padding:16px 8px;'>
+                          <span style='color:#64748b;font-size:10px;font-weight:700;text-transform:uppercase;'>Total Scans</span>
+                          <p style='color:#f8fafc;font-size:22px;font-weight:800;margin:6px 0 0;'>{$totalScans}</p>
+                        </div>
+                        <div style='display:table-cell;width:33%;text-align:center;background:#020617;border:1px solid #1e293b;border-radius:12px;padding:16px 8px;'>
+                          <span style='color:#64748b;font-size:10px;font-weight:700;text-transform:uppercase;'>Threats Flagged</span>
+                          <p style='color:#ef4444;font-size:22px;font-weight:800;margin:6px 0 0;'>{$threatsFound}</p>
+                        </div>
+                        <div style='display:table-cell;width:33%;text-align:center;background:#020617;border:1px solid #1e293b;border-radius:12px;padding:16px 8px;'>
+                          <span style='color:#64748b;font-size:10px;font-weight:700;text-transform:uppercase;'>Safe URLs</span>
+                          <p style='color:#10b981;font-size:22px;font-weight:800;margin:6px 0 0;'>{$safeUrls}</p>
+                        </div>
+                      </div>
+
+                      <div style='text-align:center;margin-top:24px;'>
+                        <a href='http://localhost:3000/home' style='display:inline-block;background:#10b981;color:#020617;font-size:14px;font-weight:800;text-decoration:none;padding:14px 32px;border-radius:10px;'>
+                          Go to Security Dashboard →
+                        </a>
+                      </div>
+                    </td>
+                  </tr>
+
+                  <!-- Footer -->
+                  <tr>
+                    <td style='padding:20px 36px;background-color:#090d16;border-top:1px solid #1e293b;text-align:center;'>
+                      <p style='color:#64748b;font-size:11px;margin:0;'>© {$year} URL Defender Inc. All rights reserved.</p>
+                    </td>
+                  </tr>
+
+                </table>
+              </td>
+            </tr>
+          </table>
+        </body>
+        </html>
+        ";
+        return self::send($to, "📊 Your Weekly Security Summary — URL Defender", $html);
+    }
+
     private static function encodeSubject(string $s): string
     {
         return '=?UTF-8?B?' . base64_encode($s) . '?=';

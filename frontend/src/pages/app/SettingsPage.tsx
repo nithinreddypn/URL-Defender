@@ -331,29 +331,68 @@ function NotificationsPanel({
   settings: AppSettings;
   onPatch: (p: Partial<AppSettings>) => Promise<void>;
 }) {
+  const [sendingDigest, setSendingDigest] = useState(false);
+
+  async function handleSendTestWeeklySummary() {
+    setSendingDigest(true);
+    try {
+      await apiRequest("/api/notifications/weekly-summary", { method: "POST" });
+      toast.success("Weekly summary email dispatched!", {
+        description: "Check your email inbox for your weekly security summary.",
+      });
+    } catch {
+      toast.error("Could not dispatch summary email.");
+    } finally {
+      setSendingDigest(false);
+    }
+  }
+
   return (
-    <PanelCard title="Notifications" description="Pick where and when we should reach out.">
-      <div className="divide-y divide-border">
-        <ToggleRow
-          label="Email alerts on new threats"
-          description="Get an email whenever a scan flags a suspicious or dangerous URL."
-          checked={settings.notifyEmailThreats}
-          onCheckedChange={(v) => onPatch({ notifyEmailThreats: v })}
-        />
-        <ToggleRow
-          label="Critical threat push notifications"
-          description="Show an in-app notification the moment a critical threat is detected."
-          checked={settings.notifyCriticalPush}
-          onCheckedChange={(v) => onPatch({ notifyCriticalPush: v })}
-        />
-        <ToggleRow
-          label="Weekly summary email"
-          description="A short digest of scans and threats, sent every Monday morning."
-          checked={settings.notifyWeeklySummary}
-          onCheckedChange={(v) => onPatch({ notifyWeeklySummary: v })}
-        />
-      </div>
-    </PanelCard>
+    <div className="space-y-6">
+      <PanelCard title="Email & In-App Alerts" description="Configure real-time threat dispatches and activity digests.">
+        <div className="divide-y divide-border">
+          <ToggleRow
+            label="Email alerts on new threats"
+            description="Automatically receive a high-priority email alert whenever a scan flags a suspicious or dangerous URL."
+            checked={settings.notifyEmailThreats !== false}
+            onCheckedChange={(v) => {
+              onPatch({ notifyEmailThreats: v });
+              toast.success(`Email threat alerts ${v ? "enabled" : "disabled"}`);
+            }}
+          />
+          <ToggleRow
+            label="Critical threat push notifications"
+            description="Show an in-app alert banner the moment a critical threat is detected."
+            checked={settings.notifyCriticalPush !== false}
+            onCheckedChange={(v) => {
+              onPatch({ notifyCriticalPush: v });
+              toast.success(`Critical push alerts ${v ? "enabled" : "disabled"}`);
+            }}
+          />
+          <ToggleRow
+            label="Weekly summary email"
+            description="A weekly digest summarizing scan counts, threats avoided, and security stats."
+            checked={settings.notifyWeeklySummary !== false}
+            onCheckedChange={(v) => {
+              onPatch({ notifyWeeklySummary: v });
+              toast.success(`Weekly summary email ${v ? "enabled" : "disabled"}`);
+            }}
+          />
+        </div>
+
+        <div className="mt-6 pt-4 border-t border-border flex flex-wrap gap-3">
+          <button
+            type="button"
+            disabled={sendingDigest}
+            onClick={handleSendTestWeeklySummary}
+            className="ring-focus inline-flex h-9 items-center gap-2 rounded-lg border border-border bg-background px-4 text-xs font-semibold text-foreground hover:bg-hover-surface disabled:opacity-60"
+          >
+            <Mail className="h-4 w-4 text-emerald-400" />
+            {sendingDigest ? "Dispatching..." : "Send Test Weekly Summary Email"}
+          </button>
+        </div>
+      </PanelCard>
+    </div>
   );
 }
 
