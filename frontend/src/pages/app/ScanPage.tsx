@@ -3,6 +3,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ScanLine,
   Link2,
+  Globe,
+  X,
   AlertTriangle,
   ShieldAlert,
   ArrowRight,

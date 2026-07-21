@@ -331,22 +331,6 @@ function NotificationsPanel({
   settings: AppSettings;
   onPatch: (p: Partial<AppSettings>) => Promise<void>;
 }) {
-  const [sendingDigest, setSendingDigest] = useState(false);
-
-  async function handleSendTestWeeklySummary() {
-    setSendingDigest(true);
-    try {
-      await apiRequest("/api/notifications/weekly-summary", { method: "POST" });
-      toast.success("Weekly summary email dispatched!", {
-        description: "Check your email inbox for your weekly security summary.",
-      });
-    } catch {
-      toast.error("Could not dispatch summary email.");
-    } finally {
-      setSendingDigest(false);
-    }
-  }
-
   return (
     <div className="space-y-6">
       <PanelCard title="Email & In-App Alerts" description="Configure real-time threat dispatches and activity digests.">
@@ -378,18 +362,6 @@ function NotificationsPanel({
               toast.success(`Weekly summary email ${v ? "enabled" : "disabled"}`);
             }}
           />
-        </div>
-
-        <div className="mt-6 pt-4 border-t border-border flex flex-wrap gap-3">
-          <button
-            type="button"
-            disabled={sendingDigest}
-            onClick={handleSendTestWeeklySummary}
-            className="ring-focus inline-flex h-9 items-center gap-2 rounded-lg border border-border bg-background px-4 text-xs font-semibold text-foreground hover:bg-hover-surface disabled:opacity-60"
-          >
-            <Mail className="h-4 w-4 text-emerald-400" />
-            {sendingDigest ? "Dispatching..." : "Send Test Weekly Summary Email"}
-          </button>
         </div>
       </PanelCard>
     </div>
