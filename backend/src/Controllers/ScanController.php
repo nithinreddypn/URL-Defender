@@ -106,10 +106,18 @@ final class ScanController
         $analysis = self::findGlobalAnalysis($normalizedUrl, hash('sha256', $normalizedUrl));
         if (!$analysis) Response::json(['success' => true, 'exists' => false]);
 
-        $history = Db::one(
-            'SELECT id, scanned_at FROM scans WHERE user_id=? AND global_analysis_id=? ORDER BY scanned_at DESC LIMIT 1',
-            [$req->user['id'], $analysis['id']]
-        );
+        $u = Db::one('SELECT scans_cleared_at FROM users WHERE id=? LIMIT 1', [$req->user['id']]);
+        $clearedAt = $u['scans_cleared_at'] ?? null;
+
+        $historyQuery = 'SELECT id, scanned_at FROM scans WHERE user_id=? AND global_analysis_id=?';
+        $historyParams = [$req->user['id'], $analysis['id']];
+        if ($clearedAt) {
+            $historyQuery .= ' AND created_at > ?';
+            $historyParams[] = $clearedAt;
+        }
+        $historyQuery .= ' ORDER BY scanned_at DESC LIMIT 1';
+
+        $history = Db::one($historyQuery, $historyParams);
         $result = json_decode((string) $analysis['raw_response'], true);
         $domain = parse_url($input, PHP_URL_HOST) ?: $input;
         if (str_starts_with($domain, 'www.')) $domain = substr($domain, 4);
@@ -146,9 +154,19 @@ final class ScanController
         $offset = max(0, (int) ($req->query['offset'] ?? 0));
         $verdict = $req->query['verdict'] ?? null;
 
+        $u = Db::one('SELECT scans_cleared_at FROM users WHERE id=? LIMIT 1', [$req->user['id']]);
+        $clearedAt = $u['scans_cleared_at'] ?? null;
+
         $where = 'user_id=?';
         $params = [$req->user['id']];
-        if ($verdict) { $where .= ' AND verdict=?'; $params[] = $verdict; }
+        if ($clearedAt) {
+            $where .= ' AND created_at > ?';
+            $params[] = $clearedAt;
+        }
+        if ($verdict) {
+            $where .= ' AND verdict=?';
+            $params[] = $verdict;
+        }
 
         $rows = Db::all(
             "SELECT s.id, s.url, s.hostname, s.verdict, s.risk_score, s.threat_category, s.duration_ms, s.scanned_at, s.created_at,
@@ -380,15 +398,13 @@ final class ScanController
         return $t ? date('Y-m-d H:i:s', $t) : null;
     }
 
-    // DELETE /api/v1/scans (auth) -> deletes all scans for authenticated user
+    // DELETE /api/v1/scans (auth) -> soft-clears user scan history by updating scans_cleared_at without deleting rows or resetting monthly quota!
     public function deleteAll(Request $req): void
     {
         $userId = $req->user['id'];
-        Db::q('DELETE FROM scan_results WHERE scan_id IN (SELECT id FROM scans WHERE user_id=?)', [$userId]);
-        Db::q('DELETE FROM scan_engines WHERE scan_id IN (SELECT id FROM scans WHERE user_id=?)', [$userId]);
-        Db::q('DELETE FROM notifications WHERE user_id=?', [$userId]);
-        $deleted = Db::q('DELETE FROM scans WHERE user_id=?', [$userId]);
-        Response::json(['ok' => true, 'deleted_count' => $deleted]);
+        Db::q('UPDATE users SET scans_cleared_at = NOW() WHERE id=?', [$userId]);
+        Db::q('UPDATE notifications SET dismissed=1 WHERE user_id=?', [$userId]);
+        Response::json(['ok' => true, 'message' => 'Scan history cleared successfully']);
     }
 
     private static function normalizeUrl(string $url): string
