@@ -7,6 +7,7 @@ import {
   ShieldAlert,
   ArrowRight,
   ShieldCheck,
+  ShieldQuestion,
   Sparkles,
   Clock,
   Loader2,
@@ -62,7 +63,9 @@ function normalizeLookupUrl(input: string): string {
 
 type LookupData = {
   id: string | null;
+  global_analysis_id?: string;
   url: string;
+  domain?: string;
   status: string;
   verdict: ScanVerdict;
   risk_score: number;
@@ -71,8 +74,9 @@ type LookupData = {
   ssl_status: string;
   redirect_count: number;
   first_detected_at: string;
+  last_analysis_status?: string;
   personal_last_scanned: string | null;
-  source: "shared_threat_intelligence";
+  source: string;
   in_history: boolean;
 };
 
@@ -431,89 +435,7 @@ export default function ScanPage() {
             )}
 
             {!error && !scanning && lookup.status === "found" && (
-              <div
-                className={cn(
-                  "mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-xs",
-                  lookup.data.verdict === "safe"
-                    ? "border-emerald-500/30 bg-emerald-500/10"
-                    : lookup.data.verdict === "dangerous"
-                      ? "border-destructive/30 bg-destructive/10"
-                      : lookup.data.verdict === "suspicious"
-                        ? "border-amber-500/30 bg-amber-500/10"
-                        : "border-slate-400/30 bg-slate-500/10",
-                )}
-              >
-                <div className="min-w-0">
-                  <p
-                    className={cn(
-                      "flex items-center gap-1.5 font-semibold",
-                      lookup.data.verdict === "safe"
-                        ? "text-emerald-300"
-                        : lookup.data.verdict === "dangerous"
-                          ? "text-destructive"
-                          : lookup.data.verdict === "suspicious"
-                            ? "text-amber-300"
-                            : "text-slate-300",
-                    )}
-                  >
-                    {lookup.data.verdict === "safe" ? (
-                      <ShieldCheck className="h-3.5 w-3.5" />
-                    ) : lookup.data.verdict === "dangerous" ? (
-                      <ShieldAlert className="h-3.5 w-3.5" />
-                    ) : lookup.data.verdict === "suspicious" ? (
-                      <AlertTriangle className="h-3.5 w-3.5" />
-                    ) : (
-                      <ShieldQuestion className="h-3.5 w-3.5" />
-                    )}
-                    {lookup.data.in_history
-                      ? "Already in your scan history."
-                      : "Analysis available"}
-                    <span className="font-normal text-muted-foreground">
-                      • Source: Shared Threat Intelligence
-                    </span>
-                  </p>
-                  <p className="mt-1 text-muted-foreground">
-                    Using the latest available scan result. {lookup.data.status} • Risk score{" "}
-                    {lookup.data.risk_score}
-                    {lookup.data.in_history && lookup.data.personal_last_scanned
-                      ? ` • Your last scan ${new Date(lookup.data.personal_last_scanned).toLocaleString()}`
-                      : ""}
-                  </p>
-                  <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-muted-foreground sm:grid-cols-4">
-                    <span>
-                      <b className="font-medium text-foreground">URL:</b> {lookup.data.url}
-                    </span>
-                    <span>
-                      <b className="font-medium text-foreground">Category:</b>{" "}
-                      {lookup.data.category}
-                    </span>
-                    <span>
-                      <b className="font-medium text-foreground">Threat:</b>{" "}
-                      {lookup.data.threat_type}
-                    </span>
-                    <span>
-                      <b className="font-medium text-foreground">SSL:</b> {lookup.data.ssl_status}
-                    </span>
-                    <span>
-                      <b className="font-medium text-foreground">Redirects:</b>{" "}
-                      {lookup.data.redirect_count}
-                    </span>
-                    <span>
-                      <b className="font-medium text-foreground">Source:</b> Shared Threat
-                      Intelligence
-                    </span>
-                  </div>
-                </div>
-                {lookup.data.id && (
-                  <Link
-                    to="/scan/$id/result"
-                    params={{ id: lookup.data.id }}
-                    className="ring-focus inline-flex h-8 shrink-0 items-center rounded-md border border-border bg-background px-3 text-xs font-semibold hover:bg-hover-surface"
-                  >
-                    View report
-                  </Link>
-                )}
-              </div>
+              <UrlAnalysisResultCard data={lookup.data} />
             )}
 
             {!error && !scanning && lookup.status === "not-found" && (
@@ -801,4 +723,189 @@ function relTime(iso: string) {
   if (h < 24) return `${h}h ago`;
   const d = Math.floor(h / 24);
   return `${d}d ago`;
+}
+
+function UrlAnalysisResultCard({ data }: { data: LookupData }) {
+  const isSafe = data.verdict === "safe";
+  const isDangerous = data.verdict === "dangerous";
+  const isSuspicious = data.verdict === "suspicious";
+
+  // Requirement 5: Dynamic styling based on status
+  const theme = isSafe
+    ? {
+        border: "border-emerald-500/40",
+        bg: "bg-emerald-950/20",
+        headerBadge: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40",
+        textAccent: "text-emerald-400",
+        icon: <ShieldCheck className="h-5 w-5 text-emerald-400 shrink-0" />,
+        shadow: "shadow-[0_0_24px_rgba(16,185,129,0.08)]",
+      }
+    : isDangerous
+      ? {
+          border: "border-rose-500/40",
+          bg: "bg-rose-950/20",
+          headerBadge: "bg-rose-500/20 text-rose-300 border-rose-500/40",
+          textAccent: "text-rose-400",
+          icon: <ShieldAlert className="h-5 w-5 text-rose-400 shrink-0" />,
+          shadow: "shadow-[0_0_24px_rgba(244,63,94,0.08)]",
+        }
+      : isSuspicious
+        ? {
+            border: "border-amber-500/40",
+            bg: "bg-amber-950/20",
+            headerBadge: "bg-amber-500/20 text-amber-300 border-amber-500/40",
+            textAccent: "text-amber-400",
+            icon: <AlertTriangle className="h-5 w-5 text-amber-400 shrink-0" />,
+            shadow: "shadow-[0_0_24px_rgba(245,158,11,0.08)]",
+          }
+        : {
+            border: "border-slate-500/30",
+            bg: "bg-slate-500/10",
+            headerBadge: "bg-slate-500/20 text-slate-300 border-slate-500/30",
+            textAccent: "text-slate-300",
+            icon: <ShieldQuestion className="h-5 w-5 text-slate-400 shrink-0" />,
+            shadow: "shadow-[0_0_20px_rgba(148,163,184,0.05)]",
+          };
+
+  const domain =
+    data.domain ||
+    (() => {
+      try {
+        const u = data.url.startsWith("http") ? data.url : `https://${data.url}`;
+        return new URL(u).hostname.replace(/^www\./, "");
+      } catch {
+        return data.url;
+      }
+    })();
+
+  const formattedFirstDetected = data.first_detected_at
+    ? new Date(data.first_detected_at).toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      })
+    : "Recent";
+
+  return (
+    <div
+      className={cn(
+        "mt-4 rounded-xl border p-5 transition-all",
+        theme.border,
+        theme.bg,
+        theme.shadow,
+      )}
+    >
+      {/* Header Badge & Privacy Title */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/40 pb-4">
+        <div className="flex items-center gap-3">
+          {theme.icon}
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className={cn("text-sm font-semibold tracking-wide", theme.textAccent)}>
+                {data.in_history ? "Already in Your Scan History" : "Analysis Available"}
+              </span>
+              <span
+                className={cn(
+                  "rounded-full border px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider",
+                  theme.headerBadge,
+                )}
+              >
+                {data.status}
+              </span>
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {data.in_history
+                ? `Your last scan: ${
+                    data.personal_last_scanned
+                      ? new Date(data.personal_last_scanned).toLocaleString()
+                      : "Recently"
+                  }`
+                : "Showing the latest verified analysis from URL Defender Threat Intelligence."}
+            </p>
+          </div>
+        </div>
+
+        {data.id && (
+          <Link
+            to="/scan/$id/result"
+            params={{ id: data.id }}
+            className="ring-focus inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-border bg-background px-3 text-xs font-semibold text-foreground transition-all hover:bg-hover-surface hover:scale-[1.02] active:scale-[0.98]"
+          >
+            <span>View report</span>
+            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
+          </Link>
+        )}
+      </div>
+
+      {/* URL Technical Details Grid */}
+      <div className="mt-4 grid grid-cols-2 gap-2.5 text-xs sm:grid-cols-4 lg:grid-cols-5">
+        <div className="rounded-lg border border-border/40 bg-background/50 p-2.5">
+          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            Domain
+          </span>
+          <p className="mt-1 truncate font-mono font-semibold text-foreground">{domain}</p>
+        </div>
+        <div className="rounded-lg border border-border/40 bg-background/50 p-2.5">
+          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            Status
+          </span>
+          <p className={cn("mt-1 font-semibold", theme.textAccent)}>{data.status}</p>
+        </div>
+        <div className="rounded-lg border border-border/40 bg-background/50 p-2.5">
+          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            Risk Score
+          </span>
+          <p className="mt-1 font-mono font-semibold text-foreground">{data.risk_score} / 100</p>
+        </div>
+        <div className="rounded-lg border border-border/40 bg-background/50 p-2.5">
+          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            Threat Category
+          </span>
+          <p className="mt-1 truncate font-medium text-foreground">
+            {data.category || "Clean / Safe"}
+          </p>
+        </div>
+        <div className="rounded-lg border border-border/40 bg-background/50 p-2.5">
+          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            Threat Type
+          </span>
+          <p className="mt-1 truncate font-medium text-foreground">{data.threat_type}</p>
+        </div>
+        <div className="rounded-lg border border-border/40 bg-background/50 p-2.5">
+          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            SSL Status
+          </span>
+          <p className="mt-1 font-medium capitalize text-foreground">{data.ssl_status}</p>
+        </div>
+        <div className="rounded-lg border border-border/40 bg-background/50 p-2.5">
+          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            Redirect Count
+          </span>
+          <p className="mt-1 font-mono font-medium text-foreground">{data.redirect_count}</p>
+        </div>
+        <div className="rounded-lg border border-border/40 bg-background/50 p-2.5">
+          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            First Detection
+          </span>
+          <p className="mt-1 font-medium text-foreground">{formattedFirstDetected}</p>
+        </div>
+        <div className="rounded-lg border border-border/40 bg-background/50 p-2.5">
+          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            Last Analysis
+          </span>
+          <p className="mt-1 font-medium text-foreground">
+            {data.last_analysis_status || "Recent"}
+          </p>
+        </div>
+        <div className="col-span-2 rounded-lg border border-border/40 bg-background/50 p-2.5 sm:col-span-2 lg:col-span-1">
+          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            Source
+          </span>
+          <p className="mt-1 truncate font-medium text-foreground">
+            {data.source || "URL Defender Threat Intelligence"}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
 }

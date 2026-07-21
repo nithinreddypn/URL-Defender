@@ -111,22 +111,28 @@ final class ScanController
             [$req->user['id'], $analysis['id']]
         );
         $result = json_decode((string) $analysis['raw_response'], true);
+        $domain = parse_url($input, PHP_URL_HOST) ?: $input;
+        if (str_starts_with($domain, 'www.')) $domain = substr($domain, 4);
+
         Response::json([
             'success' => true,
             'exists' => true,
             'data' => [
-                'id' => $history['id'] ?? null,
+                'id' => $history['id'] ?? $analysis['id'],
+                'global_analysis_id' => $analysis['id'],
                 'url' => $input,
+                'domain' => $domain,
                 'status' => ucfirst((string) $analysis['verdict']),
                 'verdict' => $analysis['verdict'],
                 'risk_score' => (int) $analysis['risk_score'],
-                'category' => $analysis['threat_category'],
+                'category' => $analysis['threat_category'] ?: 'Uncategorized',
                 'threat_type' => is_array($result) ? (($result['blacklist']['sources'][0] ?? null) ?: (($analysis['verdict'] ?? '') === 'safe' ? 'No threat detected' : 'Threat signal detected')) : 'Unavailable',
                 'ssl_status' => is_array($result) ? ($result['ssl']['status'] ?? 'unknown') : 'unknown',
                 'redirect_count' => is_array($result) ? max(0, count($result['redirect_chain'] ?? []) - 1) : 0,
                 'first_detected_at' => $analysis['first_detected_at'],
+                'last_analysis_status' => 'Recent',
                 'personal_last_scanned' => $history['scanned_at'] ?? null,
-                'source' => 'shared_threat_intelligence',
+                'source' => 'URL Defender Threat Intelligence',
                 'in_history' => $history !== null,
                 'result' => is_array($result) ? $result : null,
             ],

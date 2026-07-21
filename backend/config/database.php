@@ -33,7 +33,7 @@ if (!function_exists('urlDefenderDatabaseSettings')) {
     function urlDefenderDatabaseSettings(): array
     {
         $local = [
-            'host' => 'localhost',
+            'host' => '127.0.0.1',
             'port' => 3306,
             'name' => 'url_defender',
             'user' => 'root',
