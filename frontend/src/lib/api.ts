@@ -82,6 +82,8 @@ export type BackendUser = {
   email_verified_at: string | null;
   created_at: string;
   roles?: string[];
+  scan_count: number;
+  scans_used_this_month: number;
 };
 
 export async function fetchBackendUser(): Promise<BackendUser> {

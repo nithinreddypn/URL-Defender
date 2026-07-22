@@ -86,6 +86,7 @@ final class PaymentController
         }
         Db::q('UPDATE payments SET subscription_id=? WHERE id=?', [$subId, $pay['id']]);
         Db::q('UPDATE users SET plan=? WHERE id=?', [$plan, $req->user['id']]);
+        \App\Services\AuditLogService::log($req->user['id'], 'subscription_changed', "Upgraded to " . ucfirst($plan) . " plan", $req);
 
         Db::q(
             'INSERT INTO notifications (id, user_id, type, title, message, severity)

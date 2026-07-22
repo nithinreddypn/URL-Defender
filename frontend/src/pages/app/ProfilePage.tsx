@@ -16,6 +16,7 @@ import {
   Sparkles,
   Trash2,
   User as UserIcon,
+  Settings,
 } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
@@ -34,7 +35,7 @@ import {
 import { initials, type MockUser } from "@/lib/mock/user";
 import type { Scan } from "@/lib/mock/scans";
 import { cn } from "@/lib/utils";
-import { resolveApiAssetUrl } from "@/lib/api";
+import { resolveApiAssetUrl, apiRequest } from "@/lib/api";
 import { useCountUp } from "@/hooks/use-count-up";
 import {
   Dialog,
@@ -104,7 +105,7 @@ export default function ProfilePage() {
 
           <div className="mt-6 grid gap-6 lg:grid-cols-3">
             <div className="space-y-6 lg:col-span-2">
-              <StatsSection scans={scans!} />
+              <StatsSection user={user!} scans={scans!} />
               <MonthlyChart scans={scans!} />
               <ActivityLog events={activity!} />
             </div>
@@ -243,8 +244,8 @@ function ProfileHeader({
 
 // ---------- stats ----------
 
-function StatsSection({ scans }: { scans: Scan[] }) {
-  const total = scans.length;
+function StatsSection({ user, scans }: { user: Profile; scans: Scan[] }) {
+  const total = user.scan_count;
   const threats = scans.filter((s) => s.verdict === "dangerous").length;
   const safe = scans.filter((s) => s.verdict === "safe").length;
 
@@ -393,13 +394,26 @@ const ACTIVITY_META: Record<
   ActivityEvent["kind"],
   { label: string; icon: typeof UserIcon; tone: string }
 > = {
-  login: { label: "Signed in", icon: UserIcon, tone: "text-info" },
-  logout: { label: "Signed out", icon: LogOut, tone: "text-muted-foreground" },
-  password_changed: { label: "Password changed", icon: KeyRound, tone: "text-emerald-400" },
-  mfa_enabled: { label: "MFA enabled", icon: Shield, tone: "text-emerald-400" },
-  mfa_disabled: { label: "MFA disabled", icon: Shield, tone: "text-amber-400" },
-  profile_updated: { label: "Profile updated", icon: Pencil, tone: "text-info" },
-  plan_changed: { label: "Plan changed", icon: Sparkles, tone: "text-info" },
+  account_created: { label: "Account Created", icon: UserIcon, tone: "text-emerald-400" },
+  login: { label: "Login", icon: UserIcon, tone: "text-info" },
+  logout: { label: "Logout", icon: LogOut, tone: "text-muted-foreground" },
+  password_changed: { label: "Password Changed", icon: KeyRound, tone: "text-emerald-400" },
+  email_changed: { label: "Email Changed", icon: Mail, tone: "text-info" },
+  name_changed: { label: "Name Changed", icon: Pencil, tone: "text-info" },
+  profile_picture_updated: { label: "Profile Picture Updated", icon: Camera, tone: "text-info" },
+  mfa_enabled: { label: "MFA Enabled", icon: Shield, tone: "text-emerald-400" },
+  mfa_disabled: { label: "MFA Disabled", icon: Shield, tone: "text-amber-400" },
+  api_key_generated: { label: "API Key Generated", icon: KeyRound, tone: "text-emerald-400" },
+  api_key_revoked: { label: "API Key Revoked", icon: Trash2, tone: "text-destructive" },
+  scan_history_cleared: { label: "Scan History Cleared", icon: Trash2, tone: "text-destructive" },
+  subscription_changed: { label: "Subscription Changed", icon: Sparkles, tone: "text-emerald-400" },
+  scan_limit_reached: { label: "Scan Limit Reached", icon: ShieldAlert, tone: "text-destructive" },
+  account_settings_updated: { label: "Account Settings Updated", icon: Settings, tone: "text-info" },
+  security_settings_updated: { label: "Security Settings Updated", icon: Shield, tone: "text-info" },
+  password_reset: { label: "Password Reset", icon: KeyRound, tone: "text-emerald-400" },
+  session_revoked: { label: "Session Revoked", icon: LogOut, tone: "text-destructive" },
+  plan_changed: { label: "Plan Changed", icon: Sparkles, tone: "text-info" },
+  profile_updated: { label: "Profile Updated", icon: Pencil, tone: "text-info" },
 };
 
 function ActivityLog({ events }: { events: ActivityEvent[] }) {
@@ -573,7 +587,7 @@ function AccountRowLink({
 
 function SubscriptionCard({ user, scans }: { user: Profile; scans: Scan[] }) {
   const [upgradeOpen, setUpgradeOpen] = useState(false);
-  const used = currentMonthUsage(scans);
+  const used = user.scan_count;
   const pct = Math.min(100, Math.round((used / MONTHLY_SCAN_LIMIT) * 100));
   const planLabel = user.plan[0]!.toUpperCase() + user.plan.slice(1);
 
@@ -593,7 +607,7 @@ function SubscriptionCard({ user, scans }: { user: Profile; scans: Scan[] }) {
 
       <div className="mt-4 space-y-2">
         <div className="flex items-baseline justify-between text-xs">
-          <span className="font-medium">Usage this period</span>
+          <span className="font-medium">Lifetime scans</span>
           <span className="tabular-nums text-muted-foreground">
             {used} of {MONTHLY_SCAN_LIMIT}
           </span>
@@ -765,8 +779,10 @@ function ChangePasswordDialog({
     if (!canSave) return;
     setSaving(true);
     try {
-      // Local demo: no real auth backend — just log the event.
-      await new Promise((r) => setTimeout(r, 400));
+      await apiRequest("/api/v1/me/password", {
+        method: "POST",
+        body: JSON.stringify({ current_password: current, new_password: next }),
+      });
       logActivity("password_changed", "Password updated");
       toast.success("Password changed");
       await onSaved();

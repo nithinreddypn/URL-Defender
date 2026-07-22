@@ -35,6 +35,7 @@ final class AuthController
             'INSERT INTO user_roles (id, user_id, role) VALUES (?, ?, "user")',
             [uuid(), $userId]
         );
+        \App\Services\AuditLogService::log($userId, 'account_created', "Account created for {$email}", $req);
 
         // Issue OTP
         $code = otp(6);
@@ -239,23 +240,80 @@ final class AuthController
         Response::json(['user' => $this->userDto($req->user['id'])]);
     }
 
+    // GET /api/v1/me/activity  (auth)
+    public function activity(Request $req): void
+    {
+        $userId = $req->user['id'];
+        $logs = \App\Services\AuditLogService::fetch($userId);
+        $formatted = [];
+        foreach ($logs as $log) {
+            $meta = json_decode((string) $log['metadata'], true) ?: [];
+            $formatted[] = [
+                'id' => (string) $log['id'],
+                'kind' => $log['action'],
+                'detail' => $meta['description'] ?? '',
+                'at' => $log['created_at'] . 'Z',
+            ];
+        }
+        Response::json(['activity' => $formatted]);
+    }
+
+    // POST /api/v1/me/activity (auth) { kind, detail }
+    public function logActivity(Request $req): void
+    {
+        required($req->body, ['kind', 'detail']);
+        $kind = (string) $req->body['kind'];
+        $detail = (string) $req->body['detail'];
+        \App\Services\AuditLogService::log($req->user['id'], $kind, $detail, $req);
+        Response::json(['ok' => true]);
+    }
+
+    // POST /api/v1/me/password (auth) { current_password, new_password }
+    public function changePassword(Request $req): void
+    {
+        required($req->body, ['current_password', 'new_password']);
+        $current = (string) $req->body['current_password'];
+        $new = (string) $req->body['new_password'];
+        if (strlen($new) < 8) Response::error('New password must be at least 8 chars', 422);
+
+        $userId = $req->user['id'];
+        $user = Db::one('SELECT password_hash FROM users WHERE id=? LIMIT 1', [$userId]);
+        if (!password_verify($current, $user['password_hash'])) {
+            Response::error('Incorrect current password', 400);
+        }
+
+        Db::q('UPDATE users SET password_hash=? WHERE id=?', [password_hash($new, PASSWORD_BCRYPT, ['cost' => 12]), $userId]);
+        
+        \App\Services\AuditLogService::log($userId, 'password_changed', 'Password changed successfully', $req);
+
+        Response::json(['ok' => true]);
+    }
+
     // PATCH /api/me  (auth)  { full_name?, avatar_url? }
     public function updateMe(Request $req): void
     {
         $fields = [];
         $vals   = [];
-        if (isset($req->body['full_name'])) { $fields[] = 'full_name=?';  $vals[] = trim((string) $req->body['full_name']); }
+        $userId = $req->user['id'];
+        if (isset($req->body['full_name'])) { 
+            $fields[] = 'full_name=?';  
+            $vals[] = trim((string) $req->body['full_name']); 
+            \App\Services\AuditLogService::log($userId, 'name_changed', 'Changed name to ' . trim((string) $req->body['full_name']), $req);
+            \App\Services\AuditLogService::log($userId, 'account_settings_updated', 'Account settings updated', $req);
+        }
         if (array_key_exists('avatar_url', $req->body)) {
             if ($req->body['avatar_url'] !== null && $req->body['avatar_url'] !== '') {
                 Response::error('Use the avatar upload endpoint for images', 422);
             }
             $fields[] = 'avatar_url=?';
             $vals[] = null;
+            \App\Services\AuditLogService::log($userId, 'profile_picture_updated', 'Removed profile picture', $req);
+            \App\Services\AuditLogService::log($userId, 'account_settings_updated', 'Account settings updated', $req);
         }
-        if (!$fields) Response::json(['user' => $this->userDto($req->user['id'])]);
-        $vals[] = $req->user['id'];
+        if (!$fields) Response::json(['user' => $this->userDto($userId)]);
+        $vals[] = $userId;
         Db::q('UPDATE users SET ' . implode(',', $fields) . ' WHERE id=?', $vals);
-        Response::json(['user' => $this->userDto($req->user['id'])]);
+        Response::json(['user' => $this->userDto($userId)]);
     }
 
     // POST /api/me/avatar  (auth, multipart/form-data with `avatar` file)
@@ -297,18 +355,25 @@ final class AuthController
         }
         $url = $origin . '/uploads/avatars/' . $filename;
         Db::q('UPDATE users SET avatar_url=? WHERE id=?', [$url, $req->user['id']]);
+        \App\Services\AuditLogService::log($req->user['id'], 'profile_picture_updated', 'Uploaded new profile picture', $req);
+        \App\Services\AuditLogService::log($req->user['id'], 'account_settings_updated', 'Account settings updated', $req);
         Response::json(['user' => $this->userDto($req->user['id'])]);
     }
 
     private function userDto(string $id): array
     {
         $u = Db::one(
-            'SELECT id, email, full_name, avatar_url, plan, email_verified_at, created_at
+            'SELECT id, email, full_name, avatar_url, plan, email_verified_at, scan_count, created_at
                FROM users WHERE id=? LIMIT 1',
             [$id]
         );
         $roles = Db::all('SELECT role FROM user_roles WHERE user_id=?', [$id]);
         $u['roles'] = array_column($roles, 'role');
+        
+        $period = date('Y-m');
+        $usage = Db::one('SELECT scans_used FROM usage_monthly WHERE user_id=? AND period=? LIMIT 1', [$id, $period]);
+        $u['scans_used_this_month'] = (int) ($usage['scans_used'] ?? 0);
+        
         return $u;
     }
 

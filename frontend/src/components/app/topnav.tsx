@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from "react";
-import { Search } from "lucide-react";
+import { Search, ScanLine } from "lucide-react";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 
 import { SidebarTrigger } from "@/components/ui/sidebar";
@@ -7,6 +7,8 @@ import { NotificationBell } from "./notifications";
 import { UserMenu } from "./user-menu";
 import { LiveClock } from "./live-clock";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { fetchCurrentUser } from "@/lib/dashboard-store";
+import type { MockUser } from "@/lib/mock/user";
 
 const CommandPalette = lazy(() =>
   import("./command-palette").then((m) => ({ default: m.CommandPalette })),
@@ -14,7 +16,19 @@ const CommandPalette = lazy(() =>
 
 export function TopNav() {
   const [cmdOpen, setCmdOpen] = useState(false);
+  const [user, setUser] = useState<MockUser | null>(null);
   const reduceMotion = useReducedMotion();
+
+  useEffect(() => {
+    const refresh = () => {
+      void fetchCurrentUser()
+        .then(setUser)
+        .catch(() => setUser(null));
+    };
+    refresh();
+    window.addEventListener("url-defender:user-changed", refresh);
+    return () => window.removeEventListener("url-defender:user-changed", refresh);
+  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -92,6 +106,14 @@ export function TopNav() {
         </button>
 
         <div className="ml-auto flex items-center gap-2 md:gap-3">
+          {user && (
+            <span className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-semibold">
+              <ScanLine className="h-3.5 w-3.5 text-muted-foreground" />
+              <span>Scans:</span>
+              <span className="font-mono text-foreground">{user.scan_count}</span>
+              <span className="text-muted-foreground">/ 50</span>
+            </span>
+          )}
           <LiveClock />
           <ThemeToggle />
           <NotificationBell />

@@ -24,7 +24,7 @@ final class AuthMiddleware
         if (!$sess) Response::error('Session expired', 401);
 
         $user = Db::one(
-            'SELECT id, email, full_name, avatar_url, plan, email_verified_at
+            'SELECT id, email, full_name, avatar_url, plan, email_verified_at, scan_count
                FROM users WHERE id=? AND is_active=1 AND deleted_at IS NULL LIMIT 1',
             [$claims['sub']]
         );

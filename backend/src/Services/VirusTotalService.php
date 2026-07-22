@@ -8,9 +8,9 @@ use App\Core\{Env, Response};
 final class VirusTotalService
 {
     private const BASE = 'https://www.virustotal.com/api/v3';
-    private const POLL_MAX_MS = 6000;
+    private const MAX_RETRIES = 3;
+    private const MAX_EXECUTION_TIME_SEC = 7.0;
     private const POLL_INTERVAL_MS = 300;
-    private const POLL_MIN_ENGINES = 5;
 
     private static function apiKey(): string
     {
@@ -37,51 +37,61 @@ final class VirusTotalService
         }
 
         $urlObjectId = self::urlObjectId($normalizedUrl);
-        $cached = self::fetchUrlObject($urlObjectId);
-        $cachedStats = $cached['data']['attributes']['last_analysis_stats'] ?? null;
 
+        // Always request a fresh live analysis from VirusTotal
         $analysis = null;
-        $urlObj   = $cached;
-
-        if (!$cached || empty($cachedStats)) {
-            $analysisId = self::submitUrl($normalizedUrl);
-            if ($analysisId !== '') {
-                $analysis = self::pollAnalysis($analysisId);
-            }
-            if (!$urlObj) {
-                $urlObj = self::fetchUrlObject($urlObjectId);
-            }
+        $analysisId = self::submitUrl($normalizedUrl);
+        if ($analysisId !== '') {
+            $analysis = self::pollAnalysis($analysisId, $submittedAt);
         }
 
-        $stats   = $analysis['data']['attributes']['stats']   ?? $urlObj['data']['attributes']['last_analysis_stats']   ?? [];
-        $results = $analysis['data']['attributes']['results'] ?? $urlObj['data']['attributes']['last_analysis_results'] ?? [];
+        // Fetch the updated URL object
+        $urlObj = self::fetchUrlObject($urlObjectId);
 
-        [$verdict, $risk] = self::verdictFrom($stats);
+        $analysisStats = $analysis['data']['attributes']['stats'] ?? [];
+        $urlObjStats   = $urlObj['data']['attributes']['last_analysis_stats'] ?? [];
+        $stats = (!empty($analysisStats) && self::totalStats($analysisStats) > 0) ? $analysisStats : $urlObjStats;
+
+        $analysisResults = $analysis['data']['attributes']['results'] ?? [];
+        $urlObjResults   = $urlObj['data']['attributes']['last_analysis_results'] ?? [];
+        $results = !empty($analysisResults) ? $analysisResults : $urlObjResults;
+
+        $status = $analysis['data']['attributes']['status'] ?? 'completed';
+
+        // Derive engine statistics dynamically across all status fields
+        $totalEnginesFromStats = self::totalStats($stats);
+
         [$engines, $flaggedLabels] = self::mapEngines($results);
+        $totalEngines = max($totalEnginesFromStats, count($engines));
 
-        // Fallback engine set if VirusTotal returns empty results due to queueing
-        if (empty($engines)) {
-            [$engines, $verdict, $risk] = self::fallbackEngines($normalizedUrl);
-        }
+        // If VT status is queued or in-progress and polling timed out without stats
+        $isPending = ($status === 'queued' || $status === 'in_progress') && $totalEngines === 0;
 
-        $flaggedCount = count(array_filter($engines, fn($e) => $e['flagged']));
-        $host = parse_url($normalizedUrl, PHP_URL_HOST) ?: $normalizedUrl;
+        [$verdict, $risk, $analysisStatus] = self::verdictFrom($stats, $urlObj, $flaggedLabels, $isPending);
 
         $completedAt = microtime(true);
         $durationMs  = (int) round(($completedAt - $submittedAt) * 1000);
+        $host = parse_url($normalizedUrl, PHP_URL_HOST) ?: $normalizedUrl;
+
+        $maliciousCount  = (int) ($stats['malicious']  ?? 0);
+        $suspiciousCount = (int) ($stats['suspicious'] ?? 0);
+        $harmlessCount   = (int) ($stats['harmless']   ?? 0);
+        $undetectedCount = (int) ($stats['undetected'] ?? 0);
 
         return [
             'id'              => $scanId,
+            'vt_analysis_id'  => $analysisId ?: $urlObjectId,
             'url'             => $url,
             'hostname'        => $host,
             'verdict'         => $verdict,
+            'status'          => $analysisStatus,
             'risk_score'      => $risk,
             'threat_category' => self::category($verdict, $urlObj, $flaggedLabels),
             'ssl'             => self::mapSsl($urlObj),
             'domain_age_days' => 0,
             'blacklist'       => [
-                'listed_on'   => $flaggedCount,
-                'total_lists' => count($engines) ?: 92,
+                'listed_on'   => $maliciousCount,
+                'total_lists' => $totalEngines,
                 'sources'     => array_slice(array_column(array_filter($engines, fn($e) => $e['flagged']), 'name'), 0, 6),
             ],
             'engines'         => $engines,
@@ -96,36 +106,74 @@ final class VirusTotalService
             'recommendations' => self::recommendations($verdict, $host),
             'scanned_at'      => date('c', (int) $completedAt),
             'duration_ms'     => $durationMs,
+            'confidence'      => self::calculateConfidence($stats, $urlObj, count($engines)),
+            'virustotal_raw'  => [
+                'vt_analysis_id'        => $analysisId ?: $urlObjectId,
+                'malicious'             => $maliciousCount,
+                'suspicious'            => $suspiciousCount,
+                'harmless'              => $harmlessCount,
+                'undetected'            => $undetectedCount,
+                'timeout'               => (int) ($stats['timeout'] ?? 0),
+                'failure'               => (int) ($stats['failure'] ?? 0),
+                'reputation'            => (int) ($urlObj['data']['attributes']['reputation'] ?? 0),
+                'total_votes'           => $urlObj['data']['attributes']['total_votes'] ?? ['harmless' => 0, 'malicious' => 0],
+                'categories'            => $urlObj['data']['attributes']['categories'] ?? [],
+                'last_analysis_stats'   => $stats,
+                'last_analysis_results' => $results,
+                'community_score'       => (int) ($urlObj['data']['attributes']['reputation'] ?? 0),
+            ],
         ];
     }
 
-    // ---------- HTTP ----------
+    // ---------- HTTP WITH RETRY & EXPONENTIAL BACKOFF ----------
     private static function http(string $method, string $path, array $opts = []): array
     {
         $key = self::apiKey();
         if ($key === '') {
             throw new \RuntimeException("Missing required VIRUSTOTAL_API_KEY configuration");
         }
-        $ch = curl_init(self::BASE . $path);
-        $headers = [
-            'x-apikey: ' . $key,
-            'accept: application/json',
-        ];
-        if (isset($opts['form'])) {
-            curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($opts['form']));
-            $headers[] = 'content-type: application/x-www-form-urlencoded';
+
+        $attempts = 0;
+        $backoffMs = 1000;
+
+        while ($attempts <= self::MAX_RETRIES) {
+            $ch = curl_init(self::BASE . $path);
+            $headers = [
+                'x-apikey: ' . $key,
+                'accept: application/json',
+            ];
+            if (isset($opts['form'])) {
+                curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($opts['form']));
+                $headers[] = 'content-type: application/x-www-form-urlencoded';
+            }
+            curl_setopt_array($ch, [
+                CURLOPT_CUSTOMREQUEST  => $method,
+                CURLOPT_HTTPHEADER     => $headers,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT        => 10,
+            ]);
+
+            $body = curl_exec($ch);
+            $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+
+            if ($code === 429 && $attempts < self::MAX_RETRIES) {
+                $attempts++;
+                error_log("[VirusTotal] HTTP 429 Rate Limit encountered. Retrying attempt {$attempts}/" . self::MAX_RETRIES . " after {$backoffMs}ms...");
+                usleep($backoffMs * 1000);
+                $backoffMs *= 2; // Exponential backoff: 1s -> 2s -> 4s
+                continue;
+            }
+
+            if ($code >= 400) {
+                error_log("[VirusTotal] Request to {$path} failed with HTTP {$code}: " . substr((string)$body, 0, 200));
+                return ['_error' => $code, '_body' => (string)$body];
+            }
+
+            return json_decode((string)$body, true) ?: [];
         }
-        curl_setopt_array($ch, [
-            CURLOPT_CUSTOMREQUEST  => $method,
-            CURLOPT_HTTPHEADER     => $headers,
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT        => 20,
-        ]);
-        $body = curl_exec($ch);
-        $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-        if ($code >= 400) return ['_error' => $code, '_body' => (string)$body];
-        return json_decode((string)$body, true) ?: [];
+
+        return ['_error' => 429, '_body' => 'Rate limit exceeded after retries'];
     }
 
     private static function submitUrl(string $url): string
@@ -135,17 +183,22 @@ final class VirusTotalService
         return $r['data']['id'] ?? '';
     }
 
-    private static function pollAnalysis(string $id): array
+    private static function pollAnalysis(string $id, float $startTime): array
     {
-        $deadline = microtime(true) + (self::POLL_MAX_MS / 1000);
         $last = [];
-        while (microtime(true) < $deadline) {
+        while ((microtime(true) - $startTime) < self::MAX_EXECUTION_TIME_SEC) {
             $last = self::http('GET', "/analyses/{$id}");
             $status = $last['data']['attributes']['status'] ?? '';
-            if ($status === 'completed') return $last;
-            if (self::total($last['data']['attributes']['stats'] ?? null) >= self::POLL_MIN_ENGINES) return $last;
+            if ($status === 'completed') {
+                error_log("[VirusTotal] Live analysis {$id} completed cleanly.");
+                return $last;
+            }
+            if (self::totalStats($last['data']['attributes']['stats'] ?? null) >= 5) {
+                return $last;
+            }
             usleep(self::POLL_INTERVAL_MS * 1000);
         }
+        error_log("[VirusTotal] Polling deadline reached (7s max limit) for analysis {$id}.");
         return $last;
     }
 
@@ -157,22 +210,87 @@ final class VirusTotalService
 
     private static function urlObjectId(string $url): string
     {
-        // VirusTotal API v3 URL identifier is base64url(raw_url_string) without trailing padding
         return rtrim(strtr(base64_encode($url), '+/', '-_'), '=');
     }
 
-    // ---------- mapping ----------
-    private static function total(?array $s): int
+    private static function totalStats(?array $s): int
     {
-        return (int)(($s['malicious'] ?? 0) + ($s['suspicious'] ?? 0) + ($s['harmless'] ?? 0) + ($s['undetected'] ?? 0));
+        if (empty($s)) return 0;
+        $numeric = array_filter($s, 'is_numeric');
+        return (int) array_sum($numeric);
     }
 
-    private static function verdictFrom(array $s): array
+    // ---------- INTERNAL WEIGHTED URL DEFENDER RISK SCORE & VERDICT ----------
+    private static function verdictFrom(array $s, ?array $urlObj, array $flaggedLabels, bool $isPending = false): array
     {
-        $m = $s['malicious'] ?? 0; $u = $s['suspicious'] ?? 0; $h = $s['harmless'] ?? 0;
-        if ($m > 0) return ['dangerous',  min(96, 55 + $m * 6)];
-        if ($u > 0) return ['suspicious', min(70, 32 + $u * 7)];
-        return ['safe', $h > 0 ? 3 : 8];
+        if ($isPending) {
+            return ['suspicious', 30, 'Analysis Pending'];
+        }
+
+        $m = (int) ($s['malicious'] ?? 0);
+        $u = (int) ($s['suspicious'] ?? 0);
+        $h = (int) ($s['harmless'] ?? 0);
+        $total = self::totalStats($s);
+
+        $rep = (int) ($urlObj['data']['attributes']['reputation'] ?? 0);
+        $votes = $urlObj['data']['attributes']['total_votes'] ?? [];
+        $maliciousVotes = (int) ($votes['malicious'] ?? 0);
+
+        $hasExplicitThreat = false;
+        $tn = $urlObj['data']['attributes']['threat_names'] ?? [];
+        foreach ($tn as $name) {
+            $nameLower = strtolower((string)$name);
+            if (str_contains($nameLower, 'phish') || str_contains($nameLower, 'malware') || str_contains($nameLower, 'trojan') || str_contains($nameLower, 'exploit')) {
+                $hasExplicitThreat = true;
+                break;
+            }
+        }
+        foreach ($flaggedLabels as $label) {
+            $labelLower = strtolower((string)$label);
+            if (str_contains($labelLower, 'phish') || str_contains($labelLower, 'malware') || str_contains($labelLower, 'trojan') || str_contains($labelLower, 'exploit')) {
+                $hasExplicitThreat = true;
+                break;
+            }
+        }
+
+        // Determine Verdict and Status
+        if ($m >= 1 || $hasExplicitThreat || $maliciousVotes >= 3) {
+            $verdict = 'dangerous';
+            $status = 'Malicious';
+            // Internal URL Defender Risk Score Calculation (Not an official VT score)
+            $weightMalicious = min(80, $m * 6);
+            $weightReputation = $rep < 0 ? min(15, abs($rep)) : 0;
+            $weightVotes = min(10, $maliciousVotes * 2);
+            $risk = (int) min(99, max(75, 50 + $weightMalicious + $weightReputation + $weightVotes));
+        } else if ($u >= 1 || $rep < 0) {
+            $verdict = 'suspicious';
+            $status = 'Suspicious';
+            $risk = (int) min(69, max(30, 25 + ($u * 10) + abs($rep)));
+        } else {
+            $verdict = 'safe';
+            $status = ($h > 0 || $total > 0) ? 'Safe' : 'Unknown';
+            $risk = 0;
+        }
+
+        return [$verdict, $risk, $status];
+    }
+
+    private static function calculateConfidence(array $stats, ?array $urlObj, int $engineCount): string
+    {
+        $total = self::totalStats($stats);
+        $m = (int) ($stats['malicious'] ?? 0);
+        $h = (int) ($stats['harmless'] ?? 0);
+
+        if ($total >= 50 && ($m >= 5 || $h >= 45)) {
+            return 'Very High';
+        }
+        if ($total >= 20 || $engineCount >= 20) {
+            return 'High';
+        }
+        if ($total >= 5) {
+            return 'Medium Confidence';
+        }
+        return 'Low';
     }
 
     private static function mapEngines(array $results): array
@@ -215,7 +333,14 @@ final class VirusTotalService
         if (!empty($tn)) return $tn[0];
         if (!empty($flaggedLabels)) return ucfirst($flaggedLabels[0]);
         $cats = $urlObj['data']['attributes']['categories'] ?? [];
-        if (!empty($cats)) return array_values($cats)[0];
+        if (!empty($cats)) {
+            foreach ($cats as $vendor => $cat) {
+                if (preg_match('#(phish|malware|defacement|exploit|spam|virus)#i', (string)$cat)) {
+                    return ucfirst((string)$cat);
+                }
+            }
+            return array_values($cats)[0];
+        }
         return match ($verdict) {
             'safe'       => 'No Threats Detected',
             'suspicious' => 'Unclassified — proceed with caution',
@@ -223,7 +348,7 @@ final class VirusTotalService
         };
     }
 
-    private static function recommendations(string $verdict, string $host): array
+    public static function recommendations(string $verdict, string $host): array
     {
         return match ($verdict) {
             'dangerous' => [
@@ -245,27 +370,5 @@ final class VirusTotalService
                 'Bookmark sites you visit often.',
             ],
         };
-    }
-
-    private static function fallbackEngines(string $url): array
-    {
-        $names = [
-            'Google Safebrowsing', 'Kaspersky', 'BitDefender', 'Sophos', 'Avira',
-            'Symantec', 'McAfee', 'ESET', 'TrendMicro', 'PhishTank', 'AbuseIPDB',
-            'CRDF', 'Fortinet', 'Forcepoint ThreatSeeker', 'OpenPhish', 'Yandex Safebrowsing'
-        ];
-        $isThreat = preg_match('#(phish|malware|eicar|hack|paypa1|login-secure)#i', $url);
-        $verdict = $isThreat ? 'dangerous' : 'safe';
-        $risk = $isThreat ? 92 : 4;
-        $engines = [];
-        foreach ($names as $idx => $name) {
-            $flagged = $isThreat && ($idx < 5);
-            $engines[] = [
-                'name' => $name,
-                'flagged' => $flagged,
-                'label' => $flagged ? 'Phishing / Malware' : 'Clean',
-            ];
-        }
-        return [$engines, $verdict, $risk];
     }
 }

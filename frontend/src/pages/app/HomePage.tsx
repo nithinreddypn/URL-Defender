@@ -42,10 +42,10 @@ export default function DashboardHome() {
 
       {/* Stat cards */}
       <section className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {scans === null ? (
+        {scans === null || user === null ? (
           Array.from({ length: 4 }).map((_, i) => <StatCardSkeleton key={i} />)
         ) : (
-          <StatCards scans={scans} />
+          <StatCards scans={scans} user={user} />
         )}
       </section>
 
@@ -111,7 +111,7 @@ function Greeting({ user }: { user: MockUser | null }) {
   );
 }
 
-function StatCards({ scans }: { scans: Scan[] }) {
+function StatCards({ scans, user }: { scans: Scan[]; user: MockUser }) {
   const s = computeStats(scans);
 
   // Split into "this period" (last 7d) vs "previous period" (7-14d ago) for delta.
@@ -128,11 +128,11 @@ function StatCards({ scans }: { scans: Scan[] }) {
   return (
     <>
       <StatCard
-        label="URLs scanned"
-        value={s.total}
+        label="Lifetime Scans"
+        value={user.scan_count}
         icon={ScanLine}
         tone="brand"
-        deltaPct={s.total === 0 ? null : delta(cur.length, prev.length)}
+        deltaPct={null}
         sparkline={sparkline(scans, () => true)}
       />
       <StatCard

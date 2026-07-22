@@ -448,20 +448,16 @@ function HistoryTab() {
           {filtersActive && (
             <button
               type="button"
-              onClick={() =>
-                navigate({
-                  search: (prev: SearchParams) => ({
-                    ...prev,
-                    q: "",
-                    status: "all",
-                    risk: "all",
-                    from: "",
-                    to: "",
-                    page: 1,
-                  }),
-                  replace: true,
-                })
-              }
+              onClick={() => {
+                const next = new URLSearchParams(searchParams);
+                next.set("q", "");
+                next.set("status", "all");
+                next.set("risk", "all");
+                next.set("from", "");
+                next.set("to", "");
+                next.set("page", "1");
+                setSearchParams(next, { replace: true });
+              }}
               className="ring-focus inline-flex h-9 items-center gap-1.5 rounded-md border border-border bg-background px-3 text-xs font-medium hover:bg-hover-surface"
             >
               <X className="h-3.5 w-3.5" />
@@ -650,12 +646,11 @@ function HistoryTab() {
                 <button
                   type="button"
                   disabled={page <= 1}
-                  onClick={() =>
-                    navigate({
-                      search: (prev: SearchParams) => ({ ...prev, page: Math.max(1, page - 1) }),
-                      replace: true,
-                    })
-                  }
+                  onClick={() => {
+                    const next = new URLSearchParams(searchParams);
+                    next.set("page", String(Math.max(1, page - 1)));
+                    setSearchParams(next, { replace: true });
+                  }}
                   className="ring-focus inline-flex h-8 items-center gap-1 rounded-md border border-border bg-background px-2.5 hover:bg-hover-surface disabled:opacity-40"
                 >
                   <ChevronLeft className="h-3.5 w-3.5" />
@@ -664,15 +659,11 @@ function HistoryTab() {
                 <button
                   type="button"
                   disabled={page >= totalPages}
-                  onClick={() =>
-                    navigate({
-                      search: (prev: SearchParams) => ({
-                        ...prev,
-                        page: Math.min(totalPages, page + 1),
-                      }),
-                      replace: true,
-                    })
-                  }
+                  onClick={() => {
+                    const next = new URLSearchParams(searchParams);
+                    next.set("page", String(Math.min(totalPages, page + 1)));
+                    setSearchParams(next, { replace: true });
+                  }}
                   className="ring-focus inline-flex h-8 items-center gap-1 rounded-md border border-border bg-background px-2.5 hover:bg-hover-surface disabled:opacity-40"
                 >
                   Next

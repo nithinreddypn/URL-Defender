@@ -47,3 +47,8 @@ frontend/.env.example
 # Uploads
 backend/public/uploads/*
 !backend/public/uploads/.gitkeep
+
+# Locks & Cache
+backend/storage/locks/*
+backend/list_tables.php
+

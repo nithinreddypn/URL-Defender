@@ -5,6 +5,8 @@ export type MockUser = {
   full_name: string;
   avatar_url: string | null;
   plan: "free" | "team" | "enterprise";
+  scan_count: number;
+  scans_used_this_month: number;
   created_at: string;
 };
 

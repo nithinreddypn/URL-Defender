@@ -16,8 +16,9 @@ import {
   Check,
 } from "lucide-react";
 
-import { fetchScans, fetchMonthlyUsage, beginScan } from "@/lib/dashboard-store";
-import type { Scan } from "@/lib/mock/scans";
+import { fetchScans, fetchMonthlyUsage, beginScan, fetchCurrentUser } from "@/lib/dashboard-store";
+import type { MockUser } from "@/lib/mock/user";
+import type { Scan, ScanVerdict } from "@/lib/mock/scans";
 import { cn } from "@/lib/utils";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import { toast } from "sonner";
@@ -113,63 +114,20 @@ export default function ScanPage() {
     fetchMonthlyUsage().then(setUsage);
   }, []);
 
-  // Database-only instant lookup. Requests wait for typing to pause, cancel when
-  // input changes, and reuse the most recent response for the same normalized URL.
+  const [user, setUser] = useState<MockUser | null>(null);
+
   useEffect(() => {
-    if (scanning || !url.trim() || validateUrl(url)) {
-      setLookup({ status: "idle" });
-      return;
-    }
-
-    const normalized = normalizeLookupUrl(url);
-    const cached = lookupCache.current.get(normalized);
-    if (cached) {
-      setLookup(
-        cached.exists && cached.data
-          ? { status: "found", data: cached.data }
-          : { status: "not-found" },
-      );
-      return;
-    }
-
-    const controller = new AbortController();
-    let active = true;
-    let slowTimer: ReturnType<typeof setTimeout> | undefined;
-    const debounceTimer = setTimeout(async () => {
-      setLookup({ status: "checking" });
-      slowTimer = setTimeout(() => {
-        if (active) setLookup({ status: "loading" });
-      }, 300);
-
-      try {
-        const response = await apiRequest<LookupResponse>(
-          `/api/url/lookup?url=${encodeURIComponent(url.trim())}`,
-          { signal: controller.signal },
-        );
-        lookupCache.current.set(normalized, response);
-        if (active) {
-          setLookup(
-            response.exists && response.data
-              ? { status: "found", data: response.data }
-              : { status: "not-found" },
-          );
-        }
-      } catch (cause) {
-        if (active && !(cause instanceof DOMException && cause.name === "AbortError")) {
-          setLookup({ status: "error" });
-        }
-      } finally {
-        if (slowTimer) clearTimeout(slowTimer);
-      }
-    }, 400);
-
-    return () => {
-      active = false;
-      clearTimeout(debounceTimer);
-      if (slowTimer) clearTimeout(slowTimer);
-      controller.abort();
+    const refresh = () => {
+      void fetchCurrentUser()
+        .then(setUser)
+        .catch(() => setUser(null));
     };
-  }, [url, scanning]);
+    refresh();
+    window.addEventListener("url-defender:user-changed", refresh);
+    return () => window.removeEventListener("url-defender:user-changed", refresh);
+  }, []);
+
+  // Database-only lookup is disabled on typing, results are only shown when user explicitly clicks Scan.
 
   // Typewriter placeholder — rotates sample URLs when the input is empty & idle.
   const SAMPLE_URLS = useMemo(
@@ -291,6 +249,7 @@ export default function ScanPage() {
       setUsage(nextUsage);
       setSummaryScan(scan);
       setPostScanOpen(true);
+      window.dispatchEvent(new Event("url-defender:user-changed"));
     } catch (err) {
       setStageIdx(-1);
       if ((err as Error).message === "MONTHLY_LIMIT_REACHED") {
@@ -333,10 +292,10 @@ export default function ScanPage() {
               className="mb-2 flex items-center justify-between text-xs font-medium uppercase tracking-widest text-muted-foreground"
             >
               <span>URL to scan</span>
-              {usage && (
+              {user && (
                 <span className="normal-case tracking-normal">
-                  <span className="font-mono tabular-nums text-foreground">{usage.used}</span>
-                  <span className="text-muted-foreground"> / {usage.limit} this month</span>
+                  <span className="font-mono tabular-nums text-foreground">{user.scan_count}</span>
+                  <span className="text-muted-foreground"> / 50</span>
                 </span>
               )}
             </label>
@@ -356,6 +315,7 @@ export default function ScanPage() {
                 <input
                   id="scan-url"
                   type="text"
+                  autoComplete="off"
                   value={url}
                   onChange={(e) => {
                     setUrl(e.target.value);

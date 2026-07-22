@@ -104,6 +104,9 @@ $router->post('/api/v1/auth/google/callback',    fn($r) => $authC->googleCallbac
 // me
 $router->get  ('/api/v1/me', fn($r) => $authC->me($r),       [$auth, $verified]);
 $router->patch('/api/v1/me', fn($r) => $authC->updateMe($r), [$auth, $verified]);
+$router->post ('/api/v1/me/password', fn($r) => $authC->changePassword($r), [$auth, $verified]);
+$router->get  ('/api/v1/me/activity', fn($r) => $authC->activity($r), [$auth, $verified]);
+$router->post ('/api/v1/me/activity', fn($r) => $authC->logActivity($r), [$auth, $verified]);
 $router->post('/api/v1/me/avatar', fn($r) => $authC->uploadAvatar($r), [$auth, $verified]);
 
 // scans

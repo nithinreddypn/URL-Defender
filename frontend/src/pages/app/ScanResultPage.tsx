@@ -36,7 +36,7 @@ export default function ScanResultPage() {
   useEffect(() => {
     let cancelled = false;
     setState({ status: "loading" });
-    fetchScanResultById(id).then((result) => {
+    fetchScanResultById(id || "").then((result) => {
       if (cancelled) return;
       if (!result) return setState({ status: "not-found" });
       setState({ status: "ready", report: result });
@@ -53,8 +53,9 @@ export default function ScanResultPage() {
 
   async function handleRescan() {
     try {
-      const fresh = await createScan(result.url);
+      const fresh = await createScan(result.url, true);
       toast.success("Scan complete", { description: "Opening the fresh report." });
+      window.dispatchEvent(new Event("url-defender:user-changed"));
       navigate(`/scan/${fresh.id}/result`);
     } catch (err) {
       if ((err as Error).message === "MONTHLY_LIMIT_REACHED") {
@@ -270,8 +271,8 @@ function VerdictHero({
               <> · Showing the latest verified analysis from URL Defender Threat Intelligence.</>
             </>
           )}
-          {analysis.source === "shared_threat_intelligence" && (
-            <span className="block mt-1">Source: Shared Threat Intelligence</span>
+          {analysis.source && (
+            <span className="block mt-1">Source: {analysis.source}</span>
           )}
         </div>
       </div>
@@ -445,12 +446,18 @@ function StatRows({ result, analysis }: { result: ScanResult; analysis: ScanRepo
       <StatCell
         icon={ShieldCheck}
         label="Source"
-        value={
-          analysis.source === "shared_threat_intelligence"
-            ? "Shared Threat Intelligence"
-            : "URL Defender"
-        }
+        value={analysis.source || "URL Defender Threat Intelligence"}
         tone="text-info"
+      />
+      <StatCell
+        icon={ShieldAlert}
+        label="Confidence"
+        value={analysis.confidence || "Verified"}
+        tone={
+          (analysis.confidence || "Verified").includes("Medium")
+            ? "text-amber-400"
+            : "text-emerald-400"
+        }
       />
       <StatCell
         icon={Calendar}
@@ -504,22 +511,23 @@ function StatCell({
 // ---------- engines panel ----------
 
 function EnginesPanel({ result }: { result: ScanResult }) {
-  const flagged = result.engines.filter((e) => e.flagged).length;
+  const engines = result.engines || [];
+  const flagged = engines.filter((e) => e.flagged).length;
   return (
     <div className="rounded-xl border border-border bg-card">
       <div className="flex items-center justify-between border-b border-border px-5 py-4">
         <div>
           <h3 className="text-sm font-semibold">Detection engines</h3>
           <p className="text-xs text-muted-foreground">
-            {flagged === 0 ? "All clean" : `${flagged} of ${result.engines.length} flagged`}
+            {flagged === 0 ? "All clean" : `${flagged} of ${engines.length} flagged`}
           </p>
         </div>
         <span className="font-mono text-xs tabular-nums text-muted-foreground">
-          {result.engines.length - flagged}/{result.engines.length} clean
+          {engines.length - flagged}/{engines.length} clean
         </span>
       </div>
       <ul className="grid gap-px bg-border sm:grid-cols-2">
-        {result.engines.map((e) => (
+        {engines.map((e) => (
           <li key={e.name} className="flex items-center gap-3 bg-card px-5 py-3">
             <span
               className={cn(

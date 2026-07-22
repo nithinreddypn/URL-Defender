@@ -42,6 +42,8 @@ export type AppSettings = {
   notifyCriticalPush: boolean;
   notifyWeeklySummary: boolean;
   retentionDays: RetentionDays;
+  shareThreatIntel: boolean;
+  allowTelemetry: boolean;
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -50,6 +52,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   notifyCriticalPush: true,
   notifyWeeklySummary: false,
   retentionDays: 90,
+  shareThreatIntel: true,
+  allowTelemetry: false,
 };
 
 function _isBrowserLocal() {
@@ -262,13 +266,26 @@ export type ProfileOverrides = {
 };
 
 export type ActivityKind =
+  | "account_created"
   | "login"
   | "logout"
   | "password_changed"
+  | "email_changed"
+  | "name_changed"
+  | "profile_picture_updated"
   | "mfa_enabled"
   | "mfa_disabled"
+  | "api_key_generated"
+  | "api_key_revoked"
+  | "scan_history_cleared"
+  | "subscription_changed"
+  | "plan_changed"
   | "profile_updated"
-  | "plan_changed";
+  | "scan_limit_reached"
+  | "account_settings_updated"
+  | "security_settings_updated"
+  | "password_reset"
+  | "session_revoked";
 
 export type ActivityEvent = {
   id: string;
@@ -388,10 +405,20 @@ export function logActivity(kind: ActivityKind, detail?: string): void {
   } catch {
     /* ignore */
   }
+
+  void apiRequest("/api/v1/me/activity", {
+    method: "POST",
+    body: JSON.stringify({ kind, detail: detail || "" }),
+  }).catch(() => {});
 }
 
 export async function fetchActivity(): Promise<ActivityEvent[]> {
-  return loadActivity();
+  try {
+    const res = await apiRequest<{ activity: ActivityEvent[] }>("/api/v1/me/activity");
+    return res.activity;
+  } catch {
+    return loadActivity();
+  }
 }
 
 export async function resetAccount(): Promise<void> {
@@ -456,7 +483,8 @@ export type ScanReport = {
     last_scanned_at: string | null;
   };
   analysis: {
-    source: "shared_threat_intelligence" | "personal_scan";
+    source: string;
+    confidence?: string;
     first_detected_at: string | null;
     last_analysis_status: string;
   };
@@ -583,8 +611,8 @@ export function currentMonthUsage(scans: Scan[]): number {
 }
 
 export async function fetchMonthlyUsage(): Promise<{ used: number; limit: number }> {
-  const scans = await fetchScans();
-  return { used: currentMonthUsage(scans), limit: MONTHLY_SCAN_LIMIT };
+  const user = await fetchCurrentUser();
+  return { used: user.scans_used_this_month ?? 0, limit: MONTHLY_SCAN_LIMIT };
 }
 
 // ---- writes ----
@@ -598,14 +626,14 @@ function newScanId(): string {
  * so callers can run UI animations in parallel and only block on the result
  * at the very end. Enforces the monthly cap up-front.
  */
-export function beginScan(url: string): {
+export function beginScan(url: string, force = false): {
   scanId: string;
   promise: Promise<Scan>;
 } {
   const scanId = "pending";
   const promise = apiRequest<ScanResult>("/api/scans", {
     method: "POST",
-    body: JSON.stringify({ url }),
+    body: JSON.stringify({ url, force }),
   }).then((result) => ({
     id: result.id,
     url: result.url,
@@ -613,8 +641,8 @@ export function beginScan(url: string): {
     risk_score: result.risk_score,
     scanned_at: result.scanned_at,
     duration_ms: result.duration_ms,
-    engine_flags: result.engines.filter((engine) => engine.flagged).length,
-    engines_total: result.engines.length,
+    engine_flags: (result.engines || []).filter((engine) => engine.flagged).length,
+    engines_total: (result.engines || []).length,
   }));
   return { scanId, promise };
 }
@@ -622,8 +650,8 @@ export function beginScan(url: string): {
 /**
  * Legacy blocking API used by the "Rescan" button on the result page.
  */
-export async function createScan(url: string): Promise<Scan> {
-  return beginScan(url).promise;
+export async function createScan(url: string, force = false): Promise<Scan> {
+  return beginScan(url, force).promise;
 }
 
 /** Remove a scan (and its stored result) from local storage. */
