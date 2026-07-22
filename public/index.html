@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#09090b" />
+    <title>URL Defender — Scan any link for phishing and malware</title>
+    
+    <meta name="description" content="URL Shield scans web addresses to detect and protect against phishing, malware, and malicious sites." />
+    <meta name="author" content="URL Defender" />
+    
+    <meta property="og:title" content="URL Defender — Scan any link for phishing and malware" />
+    <meta property="og:description" content="URL Shield scans web addresses to detect and protect against phishing, malware, and malicious sites." />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="/og-image.png" />
+    
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="URL Defender — Scan any link for phishing and malware" />
+    <meta name="twitter:description" content="URL Shield scans web addresses to detect and protect against phishing, malware, and malicious sites." />
+    <meta name="twitter:image" content="/og-image.png" />
+
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/favicon.png" />
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+    <link
+      rel="preload"
+      as="style"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
+    />
+
+    <!-- Theme Initialization -->
+    <script>
+      (function() {
+        try {
+          var t = localStorage.getItem('urld-theme') || 'dark';
+          var r = t === 'system'
+            ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
+            : t;
+          var d = document.documentElement;
+          d.classList.remove('light','dark');
+          d.classList.add(r);
+        } catch(e) {}
+      })();
+    </script>
+    
+    <!-- Non-blocking font load -->
+    <script>
+      (function(){
+        var href='https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap';
+        function load(){
+          var l=document.createElement('link');
+          l.rel='stylesheet';l.href=href;l.media='all';
+          document.head.appendChild(l);
+        }
+        if('requestIdleCallback' in window){requestIdleCallback(load,{timeout:1500});}
+        else{window.addEventListener('load',function(){setTimeout(load,0);});}
+      })();
+    </script>
+    <script type="module" crossorigin src="/assets/index-BgQrO_2C.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-CC2GniHC.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

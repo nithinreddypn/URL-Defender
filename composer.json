@@ -1,0 +1,16 @@
+{
+    "name": "nithinreddypn/url-defender",
+    "description": "Enterprise-grade URL Threat Defender Web Application",
+    "type": "project",
+    "autoload": {
+        "psr-4": {
+            "App\\": "app/"
+        },
+        "files": [
+            "app/Helpers/functions.php"
+        ]
+    },
+    "require": {
+        "php": ">=8.1"
+    }
+}
