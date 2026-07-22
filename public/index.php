@@ -27,8 +27,10 @@ if (PHP_SAPI === 'cli-server') {
     }
 }
 
-// Load Composer Autoloader
-require BASE_PATH . '/vendor/autoload.php';
+// Load Composer Autoloader if present
+if (file_exists(BASE_PATH . '/vendor/autoload.php')) {
+    require BASE_PATH . '/vendor/autoload.php';
+}
 
 // Bootstrap Application
 require BASE_PATH . '/bootstrap/app.php';

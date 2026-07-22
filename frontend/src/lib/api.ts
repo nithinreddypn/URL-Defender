@@ -60,7 +60,7 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}): Pr
   }
 
   let normalizedPath = path;
-  if (path.startsWith("/api/") && path !== "/api/health") {
+  if (path.startsWith("/api/") && !path.startsWith("/api/v1/") && path !== "/api/health") {
     normalizedPath = "/api/v1/" + path.substring(5);
   }
 
