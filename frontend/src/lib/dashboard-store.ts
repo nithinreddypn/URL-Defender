@@ -670,35 +670,5 @@ export async function deleteScan(id: string): Promise<void> {
   }
 }
 
-// ---- fallback helpers (only used if VirusTotal errors) ----
-
-function buildScanFromResult(
-  id: string,
-  url: string,
-  v: { verdict: ScanVerdict; risk_score: number },
-  durationMs: number,
-): Scan {
-  return {
-    id,
-    url,
-    verdict: v.verdict,
-    risk_score: v.risk_score,
-    scanned_at: new Date().toISOString(),
-    duration_ms: Math.max(1, Math.round(durationMs)),
-    engine_flags: v.verdict === "dangerous" ? 10 : v.verdict === "suspicious" ? 3 : 0,
-    engines_total: 74,
-  };
-}
-
-function fallbackVerdictForUrl(url: string): { verdict: ScanVerdict; risk_score: number } {
-  const host = url.toLowerCase();
-  if (/(verify|secure-login|banking|-update-|invoice|wallet-connect)/.test(host)) {
-    return { verdict: "dangerous", risk_score: 85 };
-  }
-  if (/(free-|gift-|share-|download-|-signin)/.test(host)) {
-    return { verdict: "suspicious", risk_score: 55 };
-  }
-  return { verdict: "safe", risk_score: 6 };
-}
-
 export { computeStats, sparkline };
+

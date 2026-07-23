@@ -254,18 +254,18 @@ final class VirusTotalService
         }
 
         // Determine Verdict and Status
-        if ($m >= 1 || $hasExplicitThreat || $maliciousVotes >= 3) {
+        if ($m >= 1) {
             $verdict = 'dangerous';
             $status = 'Malicious';
             // Internal URL Defender Risk Score Calculation (Not an official VT score)
             $weightMalicious = min(80, $m * 6);
             $weightReputation = $rep < 0 ? min(15, abs($rep)) : 0;
             $weightVotes = min(10, $maliciousVotes * 2);
-            $risk = (int) min(99, max(75, 50 + $weightMalicious + $weightReputation + $weightVotes));
+            $risk = (int) min(99, max(40, 30 + $weightMalicious + $weightReputation + $weightVotes));
         } else if ($u >= 1 || $rep < 0) {
             $verdict = 'suspicious';
             $status = 'Suspicious';
-            $risk = (int) min(69, max(30, 25 + ($u * 10) + abs($rep)));
+            $risk = (int) min(69, max(30, 25 + ($u * 10) + ($rep < 0 ? abs($rep) : 0)));
         } else {
             $verdict = 'safe';
             $status = ($h > 0 || $total > 0) ? 'Safe' : 'Unknown';

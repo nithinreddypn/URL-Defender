@@ -416,6 +416,12 @@ const ACTIVITY_META: Record<
   profile_updated: { label: "Profile Updated", icon: Pencil, tone: "text-info" },
 };
 
+const ACTIVITY_META_DEFAULT: { label: string; icon: typeof UserIcon; tone: string } = {
+  label: "Activity",
+  icon: ShieldCheck,
+  tone: "text-muted-foreground",
+};
+
 function ActivityLog({ events }: { events: ActivityEvent[] }) {
   return (
     <section
@@ -437,7 +443,7 @@ function ActivityLog({ events }: { events: ActivityEvent[] }) {
       ) : (
         <ul className="mt-4 space-y-3">
           {events.slice(0, 8).map((e) => {
-            const meta = ACTIVITY_META[e.kind];
+            const meta = ACTIVITY_META[e.kind] ?? ACTIVITY_META_DEFAULT;
             const Icon = meta.icon;
             return (
               <li key={e.id} className="flex items-start gap-3">

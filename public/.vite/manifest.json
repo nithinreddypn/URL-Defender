@@ -1,6 +1,6 @@
 {
   "index.html": {
-    "file": "assets/index-BgQrO_2C.js",
+    "file": "assets/index-Cum1vqMW.js",
     "name": "index",
     "src": "index.html",
     "isEntry": true,
@@ -13,7 +13,7 @@
     ]
   },
   "src/components/app/command-palette.tsx": {
-    "file": "assets/command-palette-Di7W6abw.js",
+    "file": "assets/command-palette-BJrNYh-V.js",
     "name": "command-palette",
     "src": "src/components/app/command-palette.tsx",
     "isDynamicEntry": true,
@@ -22,7 +22,7 @@
     ]
   },
   "src/components/marketing/scan-preview.tsx": {
-    "file": "assets/scan-preview-zpFHRBfC.js",
+    "file": "assets/scan-preview-CVtl-23y.js",
     "name": "scan-preview",
     "src": "src/components/marketing/scan-preview.tsx",
     "isDynamicEntry": true,
